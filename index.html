@@ -375,10 +375,22 @@
 
       <div class="admin-form show" style="margin-bottom:20px;">
         <h3 style="font-size:16px;">Importar varios productos desde Excel</h3>
-        <p class="hint">El archivo tiene que tener columnas: <strong>Nombre</strong> y <strong>Precio</strong>. Opcionalmente también <strong>Medida</strong> y <strong>Rendimiento</strong> (m² que cubre 1 caja — si no la incluís, se carga en 1 y la podés editar después). Acepta .xlsx, .xls o .csv.</p>
+        <p class="hint">Funciona con listas de proveedor (columnas tipo "Descripción" / "Precio"). El archivo puede tener varias hojas — elegís cuál importar. Podés aplicar un % de aumento sobre el precio del proveedor antes de cargarlo. Acepta .xlsx, .xls o .csv.</p>
         <div class="import-row">
           <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
-          <button class="btn btn-glaze btn-sm" id="importExcelBtn">Importar</button>
+        </div>
+        <div class="import-row" id="excelSheetRow" style="display:none;">
+          <div class="field" style="margin-bottom:0;">
+            <label for="excelSheetSelect">Hoja del Excel</label>
+            <select id="excelSheetSelect"></select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="excelMarkup">% de aumento sobre el precio (opcional)</label>
+            <input type="number" id="excelMarkup" value="0" step="1">
+          </div>
+        </div>
+        <div class="import-row">
+          <button class="btn btn-glaze btn-sm" id="importExcelBtn" disabled>Elegí un archivo primero</button>
         </div>
       </div>
 
@@ -840,16 +852,16 @@
   }
 
   // ---------- Bulk import from Excel/CSV ----------
-  function readExcelFile(file){
+  let importWorkbook = null;
+
+  function readWorkbook(file){
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
       reader.onload = (e) => {
         try{
           const wb = XLSX.read(e.target.result, {type:'array'});
-          const sheet = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
-          resolve(rows);
+          resolve(wb);
         }catch(err){
           reject(err);
         }
@@ -858,60 +870,128 @@
     });
   }
 
-  function getField(row, names){
-    const keys = Object.keys(row);
-    for(const name of names){
-      const k = keys.find(kk => kk.trim().toLowerCase() === name);
-      if(k !== undefined && row[k] !== '') return row[k];
+  const NAME_HEADERS = ['nombre','descripcion','descripción','modelo','producto','articulo','artículo'];
+  const PRICE_HEADERS = ['precio','precio (m2)','precio m2','precio unit','precio unitario','precio x m2'];
+  const MEDIDA_HEADERS = ['medida','medidas','formato'];
+  const REND_HEADERS = ['rendimiento','m2 x caja','m2 por caja'];
+
+  function normHeader(v){
+    return String(v == null ? '' : v).trim().toLowerCase();
+  }
+  function findCol(headerRow, candidates){
+    for(let i=0;i<headerRow.length;i++){
+      const h = normHeader(headerRow[i]);
+      if(!h) continue;
+      if(candidates.some(c => h === c || h.includes(c))) return i;
     }
-    return '';
+    return -1;
   }
 
-  async function importExcel(){
+  // Busca, dentro de las primeras filas de la hoja, la fila que funciona como encabezado
+  // (la que tiene una columna de nombre/descripción y una de precio).
+  function findHeaderRow(rows){
+    const limit = Math.min(rows.length, 15);
+    for(let r=0;r<limit;r++){
+      const nameCol = findCol(rows[r], NAME_HEADERS);
+      const priceCol = findCol(rows[r], PRICE_HEADERS);
+      if(nameCol !== -1 && priceCol !== -1){
+        return {rowIndex:r, nameCol, priceCol,
+          medidaCol: findCol(rows[r], MEDIDA_HEADERS),
+          rendCol: findCol(rows[r], REND_HEADERS)};
+      }
+    }
+    return null;
+  }
+
+  function parsePrecio(v){
+    if(typeof v === 'number') return v;
+    if(!v) return null;
+    const cleaned = String(v).replace(/[^\d,.\-]/g,'').replace(/\.(?=\d{3}(\D|$))/g,'').replace(',', '.');
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? null : n;
+  }
+
+  function guessMedida(nombre){
+    const m = String(nombre).match(/\d{2,3}([.,]\d+)?\s*x\s*\d{2,3}([.,]\d+)?/i);
+    return m ? m[0].replace(/\s+/g,'') : '';
+  }
+
+  async function onExcelFileChosen(){
     const fileInput = $('#excelFile');
     const statusEl = $('#prodStatus');
+    const sheetRow = $('#excelSheetRow');
+    const importBtn = $('#importExcelBtn');
     if(!fileInput.files || !fileInput.files[0]){
-      statusEl.textContent = 'Elegí un archivo primero.';
-      statusEl.className = 'status-msg show status-err';
+      sheetRow.style.display = 'none';
+      importBtn.disabled = true;
+      importBtn.textContent = 'Elegí un archivo primero';
       return;
     }
-    statusEl.textContent = 'Importando…';
-    statusEl.className = 'status-msg show status-ok';
     try{
-      const rows = await readExcelFile(fileInput.files[0]);
-      let cargados = 0, saltados = 0;
-      for(const row of rows){
-        const nombre = String(getField(row, ['nombre'])).trim();
-        if(!nombre){ saltados++; continue; }
-        const precioRaw = getField(row, ['precio']);
-        const medida = String(getField(row, ['medida'])).trim();
-        const rendRaw = getField(row, ['rendimiento']);
-        const data = {
-          nombre,
-          foto: '',
-          medida,
-          rendimiento: rendRaw ? parseFloat(rendRaw) : 1,
-          precio: precioRaw !== '' ? parseFloat(precioRaw) : null,
-          pegamentoKgM2: 4,
-          pegamentoBolsaKg: 25,
-          plasticolLM2: 0.5,
-          plasticolEnvaseL: 4
-        };
-        const id = await saveOneProducto(data, null);
-        if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
-      }
-      statusEl.textContent = `Se cargaron ${cargados} productos.${saltados ? ' ' + saltados + ' filas se saltearon (sin nombre o con error).' : ''} Podés agregarles foto editando cada uno.`;
-      statusEl.className = 'status-msg show status-ok';
-      fileInput.value = '';
-      renderAdminProducts();
-      renderCatalog();
-      renderCalcSelect();
-      renderHeroTiles();
+      importWorkbook = await readWorkbook(fileInput.files[0]);
+      const select = $('#excelSheetSelect');
+      select.innerHTML = importWorkbook.SheetNames.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+      sheetRow.style.display = 'flex';
+      importBtn.disabled = false;
+      importBtn.textContent = 'Importar';
+      statusEl.classList.remove('show');
     }catch(e){
       console.error(e);
       statusEl.textContent = 'No se pudo leer el archivo. Verificá que sea .xlsx, .xls o .csv.';
       statusEl.className = 'status-msg show status-err';
     }
+  }
+
+  async function importExcel(){
+    const statusEl = $('#prodStatus');
+    if(!importWorkbook){
+      statusEl.textContent = 'Elegí un archivo primero.';
+      statusEl.className = 'status-msg show status-err';
+      return;
+    }
+    const sheetName = $('#excelSheetSelect').value;
+    const sheet = importWorkbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+    const header = findHeaderRow(rows);
+    if(!header){
+      statusEl.textContent = 'No pude encontrar las columnas de nombre y precio en esa hoja. Probá con otra hoja del archivo.';
+      statusEl.className = 'status-msg show status-err';
+      return;
+    }
+    const markupPct = parseFloat($('#excelMarkup').value) || 0;
+    statusEl.textContent = 'Importando…';
+    statusEl.className = 'status-msg show status-ok';
+
+    let cargados = 0, saltados = 0;
+    for(let r = header.rowIndex + 1; r < rows.length; r++){
+      const row = rows[r];
+      if(!row) { saltados++; continue; }
+      const nombre = String(row[header.nameCol] || '').trim();
+      const precioBase = parsePrecio(row[header.priceCol]);
+      if(!nombre || precioBase === null){ saltados++; continue; }
+      const precioFinal = markupPct ? Math.round(precioBase * (1 + markupPct/100)) : precioBase;
+      const medida = header.medidaCol !== -1 ? String(row[header.medidaCol] || '').trim() : guessMedida(nombre);
+      const rendimiento = header.rendCol !== -1 ? (parseFloat(row[header.rendCol]) || 1) : 1;
+      const data = {
+        nombre, foto: '', medida, rendimiento,
+        precio: precioFinal,
+        pegamentoKgM2: 4, pegamentoBolsaKg: 25,
+        plasticolLM2: 0.5, plasticolEnvaseL: 4
+      };
+      const id = await saveOneProducto(data, null);
+      if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
+    }
+    statusEl.textContent = `Se cargaron ${cargados} productos desde "${sheetName}".${saltados ? ' ' + saltados + ' filas se saltearon (sin nombre/precio válido).' : ''} Ahora podés agregarles foto editando cada uno.`;
+    statusEl.className = 'status-msg show status-ok';
+    $('#excelFile').value = '';
+    $('#excelSheetRow').style.display = 'none';
+    $('#importExcelBtn').disabled = true;
+    $('#importExcelBtn').textContent = 'Elegí un archivo primero';
+    importWorkbook = null;
+    renderAdminProducts();
+    renderCatalog();
+    renderCalcSelect();
+    renderHeroTiles();
   }
 
   // ---------- Admin: pedidos ----------
@@ -982,6 +1062,7 @@
     $('#calcProducto').addEventListener('change', () => $('#manualFields').classList.remove('show'));
 
     $('#sendForm').addEventListener('click', sendForm);
+    $('#excelFile').addEventListener('change', onExcelFileChosen);
     $('#importExcelBtn').addEventListener('click', importExcel);
     $('#waMainBtn').addEventListener('click', (e) => {
       e.preventDefault();
