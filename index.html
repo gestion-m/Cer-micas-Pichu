@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catálogo de Cerámicas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg: #EAE6DE;
+    --grout: #D8D2C4;
+    --ink: #2B2723;
+    --ink-soft: #59534A;
+    --clay: #A9542E;
+    --clay-dark: #8A431F;
+    --glaze: #3D6259;
+    --glaze-dark: #2C4A42;
+    --sand: #C7A15A;
+    --paper: #F5F2EB;
+    --line: rgba(43,39,35,0.14);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Work Sans', sans-serif;
+    font-size:16px;
+    line-height:1.5;
+  }
+  h1,h2,h3,.display{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+  a{color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+
+  /* Header */
+  header{
+    position:sticky;top:0;z-index:50;
+    background:var(--bg);
+    border-bottom:1px solid var(--line);
+  }
+  .headbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 24px;max-width:1080px;margin:0 auto;
+  }
+  .logo{font-family:'Fraunces',serif;font-size:22px;font-weight:600;}
+  .logo span{color:var(--clay);}
+  nav{display:flex;align-items:center;gap:22px;}
+  nav a{font-size:15px;text-decoration:none;color:var(--ink-soft);border-bottom:1px solid transparent;padding-bottom:2px;}
+  nav a:hover{color:var(--ink);border-color:var(--clay);}
+  .admin-toggle{
+    background:none;border:1px solid var(--line);border-radius:100px;
+    width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+    color:var(--ink-soft);
+  }
+  .admin-toggle:hover{border-color:var(--clay);color:var(--clay);}
+
+  /* Hero */
+  .hero{padding:56px 0 40px;}
+  .hero-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center;}
+  .hero h1{font-size:40px;line-height:1.12;max-width:9ch;}
+  .hero p{color:var(--ink-soft);font-size:17px;max-width:42ch;margin-top:14px;}
+  .hero-actions{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap;}
+  .tilewall{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:3px;
+    background:var(--grout);padding:3px;aspect-ratio:1/1;
+  }
+  .tilewall .t{background-size:cover;background-position:center;background-color:var(--paper);}
+
+  /* Buttons */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:12px 22px;border-radius:3px;font-size:15px;font-weight:500;
+    border:1px solid transparent;text-decoration:none;
+  }
+  .btn-clay{background:var(--clay);color:#fff;}
+  .btn-clay:hover{background:var(--clay-dark);}
+  .btn-glaze{background:var(--glaze);color:#fff;}
+  .btn-glaze:hover{background:var(--glaze-dark);}
+  .btn-ghost{background:transparent;border-color:var(--ink);color:var(--ink);}
+  .btn-ghost:hover{background:var(--ink);color:var(--bg);}
+  .btn-sm{padding:8px 14px;font-size:13px;}
+  .btn[disabled]{opacity:0.5;cursor:default;}
+
+  /* Sections */
+  section{padding:60px 0;}
+  .section-head{margin-bottom:30px;max-width:56ch;}
+  .section-head h2{font-size:28px;}
+  .section-head p{color:var(--ink-soft);margin-top:8px;}
+  .divider{border:none;border-top:1px solid var(--line);}
+
+  /* Catalog */
+  .catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px;background:var(--grout);}
+  .card{background:var(--paper);display:flex;flex-direction:column;}
+  .card .photo{
+    aspect-ratio:1/1;background-size:cover;background-position:center;
+    background-color:var(--grout);position:relative;
+  }
+  .card .photo.empty::after{
+    content:"Sin foto";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--ink-soft);font-size:13px;
+  }
+  .card .body{padding:16px;display:flex;flex-direction:column;gap:6px;flex:1;}
+  .card .nombre{font-family:'Fraunces',serif;font-weight:600;font-size:17px;}
+  .card .meta{color:var(--ink-soft);font-size:13.5px;}
+  .card .precio{font-size:14px;font-weight:500;color:var(--clay-dark);margin-top:4px;}
+  .card .actions{margin-top:auto;padding-top:12px;display:flex;gap:8px;flex-wrap:wrap;}
+  .empty-state{
+    padding:40px;text-align:center;color:var(--ink-soft);background:var(--paper);
+    border:1px dashed var(--line);
+  }
+
+  /* Calculator */
+  .calc-box{background:var(--paper);border:1px solid var(--line);padding:32px;display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+  .field label{font-size:13.5px;color:var(--ink-soft);}
+  .field input,.field select,.field textarea{
+    padding:10px 12px;border:1px solid var(--line);background:#fff;border-radius:3px;
+    font-family:inherit;font-size:15px;color:var(--ink);
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--glaze);outline-offset:1px;}
+  .manual-toggle{font-size:13px;color:var(--glaze-dark);text-decoration:underline;background:none;border:none;padding:0;margin-bottom:14px;}
+  .manual-fields{display:none;grid-template-columns:1fr 1fr;gap:12px;}
+  .manual-fields.show{display:grid;}
+  .results{display:flex;flex-direction:column;gap:14px;justify-content:center;}
+  .result-row{border-top:1px solid var(--line);padding-top:14px;}
+  .result-row:first-child{border-top:none;padding-top:0;}
+  .result-num{font-family:'Fraunces',serif;font-size:30px;font-weight:600;color:var(--clay-dark);line-height:1;}
+  .result-label{font-size:14px;color:var(--ink-soft);margin-top:4px;}
+  .result-sub{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+  .results-placeholder{color:var(--ink-soft);font-size:14.5px;}
+
+  /* Contact */
+  .contact-grid{display:grid;grid-template-columns:0.9fr 1.1fr;gap:40px;}
+  .pago-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;}
+  .pago-list li{display:flex;gap:10px;align-items:baseline;font-size:15px;}
+  .pago-list li::before{content:"—";color:var(--clay);}
+  .form-box{background:var(--paper);border:1px solid var(--line);padding:28px;}
+  .confirm-msg{background:var(--glaze);color:#fff;padding:14px 16px;font-size:14.5px;display:none;margin-bottom:16px;}
+  .confirm-msg.show{display:block;}
+
+  footer{padding:30px 0 50px;color:var(--ink-soft);font-size:13.5px;border-top:1px solid var(--line);margin-top:20px;}
+
+  /* Admin */
+  #admin-overlay{
+    position:fixed;inset:0;background:var(--bg);z-index:200;overflow-y:auto;display:none;
+  }
+  #admin-overlay.show{display:block;}
+  .admin-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:18px 24px;border-bottom:1px solid var(--line);max-width:1080px;margin:0 auto;
+  }
+  .pin-box{max-width:340px;margin:100px auto;text-align:center;}
+  .pin-box input{width:100%;text-align:center;font-size:22px;letter-spacing:6px;padding:14px;border:1px solid var(--line);margin:16px 0;border-radius:3px;}
+  .pin-error{color:var(--clay-dark);font-size:13.5px;min-height:18px;}
+  .admin-tabs{display:flex;gap:4px;padding:20px 24px 0;max-width:1080px;margin:0 auto;}
+  .admin-tab{padding:9px 16px;font-size:14px;border:1px solid var(--line);background:none;color:var(--ink-soft);}
+  .admin-tab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+  .admin-panel{max-width:1080px;margin:0 auto;padding:24px;display:none;}
+  .admin-panel.show{display:block;}
+  .admin-row{
+    display:flex;gap:14px;align-items:center;padding:14px;background:var(--paper);
+    border:1px solid var(--line);margin-bottom:8px;
+  }
+  .admin-row img{width:56px;height:56px;object-fit:cover;background:var(--grout);flex-shrink:0;}
+  .admin-row .noimg{width:56px;height:56px;background:var(--grout);flex-shrink:0;}
+  .admin-row .info{flex:1;min-width:0;}
+  .admin-row .info .n{font-weight:500;}
+  .admin-row .info .m{font-size:13px;color:var(--ink-soft);}
+  .admin-form{background:var(--paper);border:1px solid var(--line);padding:24px;margin-bottom:24px;display:none;}
+  .admin-form.show{display:block;}
+  .admin-form h3{font-size:18px;margin-bottom:16px;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-grid .full{grid-column:1/-1;}
+  .hint{font-size:12px;color:var(--ink-soft);margin-top:3px;}
+  .lead{padding:14px;background:var(--paper);border:1px solid var(--line);margin-bottom:8px;}
+  .lead .top{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-soft);}
+  .lead .msg{margin-top:6px;font-size:14.5px;}
+  .status-msg{font-size:13.5px;padding:10px 12px;margin-bottom:14px;display:none;}
+  .status-msg.show{display:block;}
+  .status-ok{background:#e4ede9;color:var(--glaze-dark);}
+  .status-err{background:#f2ded3;color:var(--clay-dark);}
+  .config-banner{
+    background:var(--clay);color:#fff;padding:12px 24px;font-size:14px;text-align:center;display:none;
+  }
+  .config-banner.show{display:block;}
+  .config-banner a{color:#fff;text-decoration:underline;}
+  .import-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;}
+  .import-row input[type=file]{font-size:13px;}
+
+  @media(max-width:760px){
+    .hero-grid{grid-template-columns:1fr;}
+    .hero h1{max-width:none;font-size:32px;}
+    .calc-box{grid-template-columns:1fr;padding:22px;}
+    .contact-grid{grid-template-columns:1fr;}
+    .form-grid{grid-template-columns:1fr;}
+    nav{gap:14px;}
+    nav a{font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="config-banner" id="configBanner">
+  Falta configurar Firebase para que la página guarde datos. Mirá la sección CONFIG al principio del archivo.
+</div>
+
+<header>
+  <div class="headbar">
+    <div class="logo">Cerámicas <span>Pichu</span></div>
+    <nav>
+      <a href="#catalogo">Catálogo</a>
+      <a href="#calculadora">Calculadora</a>
+      <a href="#contacto">Contacto</a>
+      <button class="admin-toggle" id="openAdmin" title="Panel de administración" aria-label="Panel de administración">⚙</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="hero-grid">
+      <div>
+        <h1>Cerámicas para piso y revestimiento</h1>
+        <p>Elegí el modelo, calculá cuántas cajas necesitás según tus metros cuadrados y coordiná tu pedido por WhatsApp.</p>
+        <div class="hero-actions">
+          <a href="#catalogo" class="btn btn-clay">Ver catálogo</a>
+          <a href="#calculadora" class="btn btn-ghost">Calcular materiales</a>
+        </div>
+      </div>
+      <div class="tilewall" id="heroTiles"></div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <section id="catalogo">
+    <div class="section-head">
+      <h2>Catálogo</h2>
+      <p>Cada modelo indica la medida, cuántos m² cubre una caja y el precio si está cargado.</p>
+    </div>
+    <div id="catalogGrid"></div>
+  </section>
+
+  <hr class="divider">
+
+  <section id="calculadora">
+    <div class="section-head">
+      <h2>Calculadora de materiales</h2>
+      <p>Ingresá los m² a cubrir y te decimos cuántas cajas, cuánto pegamento y cuánto plasticol comprar.</p>
+    </div>
+    <div class="calc-box">
+      <div>
+        <div class="field">
+          <label for="calcProducto">Modelo</label>
+          <select id="calcProducto"></select>
+        </div>
+        <button type="button" class="manual-toggle" id="manualToggle">Mi modelo no está en la lista, ingresar rendimiento manual</button>
+        <div class="manual-fields" id="manualFields">
+          <div class="field">
+            <label for="manRend">m² que cubre 1 caja</label>
+            <input type="number" id="manRend" min="0.1" step="0.01" placeholder="ej: 1.44">
+          </div>
+          <div class="field">
+            <label for="manPeg">Pegamento (kg por m²)</label>
+            <input type="number" id="manPeg" min="0" step="0.1" value="4">
+          </div>
+          <div class="field">
+            <label for="manPegBolsa">Bolsa de pegamento (kg)</label>
+            <input type="number" id="manPegBolsa" min="1" step="1" value="25">
+          </div>
+          <div class="field">
+            <label for="manPlas">Plasticol (L por m²)</label>
+            <input type="number" id="manPlas" min="0" step="0.05" value="0.5">
+          </div>
+          <div class="field">
+            <label for="manPlasEnv">Envase de plasticol (L)</label>
+            <input type="number" id="manPlasEnv" min="0.5" step="0.5" value="4">
+          </div>
+        </div>
+        <div class="field">
+          <label for="calcM2">Metros cuadrados a cubrir</label>
+          <input type="number" id="calcM2" min="0.1" step="0.1" placeholder="ej: 25">
+        </div>
+        <button type="button" class="btn btn-clay" id="calcBtn">Calcular</button>
+      </div>
+      <div class="results" id="calcResults">
+        <p class="results-placeholder">Completá los datos y tocá "Calcular" para ver cuánto necesitás comprar.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <section id="contacto">
+    <div class="section-head">
+      <h2>Contacto y medios de pago</h2>
+    </div>
+    <div class="contact-grid">
+      <div>
+        <h3 style="font-size:17px;margin-bottom:12px;">Formas de pago</h3>
+        <ul class="pago-list">
+          <li>Transferencia bancaria</li>
+          <li>Cuotas</li>
+        </ul>
+        <div style="margin-top:26px;">
+          <a href="#" id="waMainBtn" target="_blank" class="btn btn-glaze">Escribinos por WhatsApp</a>
+        </div>
+      </div>
+      <div class="form-box">
+        <div class="status-msg" id="formStatus"></div>
+        <div class="field">
+          <label for="fNombre">Nombre</label>
+          <input type="text" id="fNombre">
+        </div>
+        <div class="field">
+          <label for="fTelefono">Teléfono</label>
+          <input type="text" id="fTelefono">
+        </div>
+        <div class="field">
+          <label for="fProducto">Modelo de interés (opcional)</label>
+          <select id="fProducto"><option value="">No estoy seguro</option></select>
+        </div>
+        <div class="field">
+          <label for="fMensaje">Mensaje</label>
+          <textarea id="fMensaje" rows="3" placeholder="Contanos qué estás buscando"></textarea>
+        </div>
+        <button type="button" class="btn btn-clay" id="sendForm">Enviar consulta</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">Cerámicas Pichu</div>
+</footer>
+
+<!-- ADMIN OVERLAY -->
+<div id="admin-overlay">
+  <div class="admin-head">
+    <div class="logo">Panel de administración</div>
+    <button class="btn btn-ghost btn-sm" id="closeAdmin">Salir</button>
+  </div>
+
+  <div id="pinScreen" class="pin-box">
+    <h3 style="font-size:18px;">Ingresá el PIN</h3>
+    <input type="password" id="pinInput" inputmode="numeric" maxlength="6" autocomplete="off">
+    <div class="pin-error" id="pinError"></div>
+    <button class="btn btn-clay" id="pinSubmit">Entrar</button>
+  </div>
+
+  <div id="adminContent" style="display:none;">
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="productos">Productos</button>
+      <button class="admin-tab" data-tab="pedidos">Consultas recibidas</button>
+    </div>
+
+    <div class="admin-panel show" id="panel-productos">
+      <div class="status-msg" id="prodStatus"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0;flex-wrap:wrap;gap:12px;">
+        <p class="hint" style="margin:0;">Los productos que cargues acá aparecen automáticamente en el catálogo público.</p>
+        <button class="btn btn-clay btn-sm" id="newProductBtn">+ Agregar producto</button>
+      </div>
+
+      <div class="admin-form show" style="margin-bottom:20px;">
+        <h3 style="font-size:16px;">Importar varios productos desde Excel</h3>
+        <p class="hint">El archivo tiene que tener columnas: <strong>Nombre</strong> y <strong>Precio</strong>. Opcionalmente también <strong>Medida</strong> y <strong>Rendimiento</strong> (m² que cubre 1 caja — si no la incluís, se carga en 1 y la podés editar después). Acepta .xlsx, .xls o .csv.</p>
+        <div class="import-row">
+          <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
+          <button class="btn btn-glaze btn-sm" id="importExcelBtn">Importar</button>
+        </div>
+      </div>
+
+      <div class="admin-form" id="productForm">
+        <h3 id="formTitle">Nuevo producto</h3>
+        <input type="hidden" id="pId">
+        <div class="form-grid">
+          <div class="field full">
+            <label for="pFoto">Foto</label>
+            <input type="file" id="pFoto" accept="image/*">
+            <div class="hint">Se guarda automáticamente comprimida para no ocupar mucho espacio.</div>
+          </div>
+          <div class="field">
+            <label for="pNombre">Nombre del modelo</label>
+            <input type="text" id="pNombre" placeholder="ej: Porcelanato Roca Gris">
+          </div>
+          <div class="field">
+            <label for="pMedida">Medida</label>
+            <input type="text" id="pMedida" placeholder="ej: 60x60 cm">
+          </div>
+          <div class="field">
+            <label for="pRend">m² que cubre 1 caja</label>
+            <input type="number" id="pRend" min="0.01" step="0.01" placeholder="ej: 1.44">
+          </div>
+          <div class="field">
+            <label for="pPrecio">Precio por m² (opcional)</label>
+            <input type="number" id="pPrecio" min="0" step="1" placeholder="opcional">
+          </div>
+          <div class="field">
+            <label for="pPeg">Pegamento (kg por m²)</label>
+            <input type="number" id="pPeg" min="0" step="0.1" value="4">
+          </div>
+          <div class="field">
+            <label for="pPegBolsa">Bolsa de pegamento (kg)</label>
+            <input type="number" id="pPegBolsa" min="1" step="1" value="25">
+          </div>
+          <div class="field">
+            <label for="pPlas">Plasticol (L por m²)</label>
+            <input type="number" id="pPlas" min="0" step="0.05" value="0.5">
+          </div>
+          <div class="field">
+            <label for="pPlasEnv">Envase de plasticol (L)</label>
+            <input type="number" id="pPlasEnv" min="0.5" step="0.5" value="4">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <button class="btn btn-clay btn-sm" id="saveProduct">Guardar</button>
+          <button class="btn btn-ghost btn-sm" id="cancelProduct">Cancelar</button>
+        </div>
+      </div>
+
+      <div id="productList"></div>
+    </div>
+
+    <div class="admin-panel" id="panel-pedidos">
+      <p class="hint" style="margin:20px 0;">Consultas enviadas desde el formulario de contacto.</p>
+      <div id="pedidosList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============ CONFIGURACIÓN — editá estos datos ============
+  const CONFIG = {
+    whatsapp: "5491100000000", // reemplazá por tu número real, con código de país, sin + ni espacios
+    adminPin: "2026", // PIN para entrar al panel de administración
+    // Pegá acá la configuración de tu proyecto de Firebase (Configuración del proyecto → tus apps → SDK de Firebase)
+    firebase: {
+      apiKey: "AIzaSyCI3UR1ypNC4G4uO_870QtK-G27DRDadsI",
+      authDomain: "ceramicas-pichu.firebaseapp.com",
+      projectId: "ceramicas-pichu",
+      storageBucket: "ceramicas-pichu.firebasestorage.app",
+      messagingSenderId: "155704663655",
+      appId: "1:155704663655:web:bafdfcfaf71b2d6af53ec2"
+    }
+  };
+  // =============================================================
+
+  const firebaseConfigured = CONFIG.firebase.apiKey !== "TU_API_KEY";
+  let db = null;
+  if(firebaseConfigured){
+    try{
+      firebase.initializeApp(CONFIG.firebase);
+      db = firebase.firestore();
+    }catch(e){
+      console.error('Error iniciando Firebase', e);
+    }
+  }
+
+  const $ = (sel, ctx) => (ctx||document).querySelector(sel);
+  const $all = (sel, ctx) => Array.from((ctx||document).querySelectorAll(sel));
+
+  let productos = [];
+  let pedidos = [];
+
+  // ---------- Storage helpers (Firebase Firestore) ----------
+  async function loadProductos(){
+    if(!db){ productos = []; return; }
+    try{
+      const snap = await db.collection('productos').get();
+      productos = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    }catch(e){
+      console.error('Error cargando productos', e);
+      productos = [];
+    }
+  }
+  // Guarda un único producto (nuevo o editado). Devuelve el id o null si falló.
+  async function saveOneProducto(data, id){
+    if(!db) return null;
+    try{
+      if(id){
+        await db.collection('productos').doc(id).set(data, {merge:true});
+        return id;
+      }else{
+        const ref = await db.collection('productos').add(data);
+        return ref.id;
+      }
+    }catch(e){
+      console.error('Error guardando producto', e);
+      return null;
+    }
+  }
+  async function deleteOneProducto(id){
+    if(!db) return false;
+    try{
+      await db.collection('productos').doc(id).delete();
+      return true;
+    }catch(e){
+      console.error('Error eliminando producto', e);
+      return false;
+    }
+  }
+  async function loadPedidos(){
+    if(!db){ pedidos = []; return; }
+    try{
+      const snap = await db.collection('pedidos').orderBy('fecha','desc').get();
+      pedidos = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    }catch(e){
+      console.error('Error cargando pedidos', e);
+      pedidos = [];
+    }
+  }
+  async function saveOnePedido(data){
+    if(!db) return false;
+    try{
+      await db.collection('pedidos').add(data);
+      return true;
+    }catch(e){
+      console.error('Error guardando pedido', e);
+      return false;
+    }
+  }
+
+  function uid(){
+    return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+  }
+
+  function money(n){
+    if(n === null || n === undefined || n === '') return '';
+    return '$' + Number(n).toLocaleString('es-AR');
+  }
+
+  // ---------- Image compression ----------
+  function resizeImageToBase64(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('No se pudo procesar la imagen'));
+        img.onload = () => {
+          const maxDim = 900;
+          let w = img.width, h = img.height;
+          if(w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else if(h >= w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.72));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ---------- Render: hero tile wall ----------
+  function renderHeroTiles(){
+    const box = $('#heroTiles');
+    box.innerHTML = '';
+    const withPhoto = productos.filter(p => p.foto);
+    const count = 9;
+    for(let i=0;i<count;i++){
+      const div = document.createElement('div');
+      div.className = 't';
+      if(withPhoto.length){
+        const p = withPhoto[i % withPhoto.length];
+        div.style.backgroundImage = `url(${p.foto})`;
+      }
+      box.appendChild(div);
+    }
+  }
+
+  // ---------- Render: catalog ----------
+  function renderCatalog(){
+    const grid = $('#catalogGrid');
+    if(!productos.length){
+      grid.innerHTML = '<div class="empty-state">Todavía no hay productos cargados. Se van a ver acá apenas se agreguen desde el panel de administración.</div>';
+      return;
+    }
+    grid.className = 'catalog-grid';
+    grid.innerHTML = productos.map(p => `
+      <div class="card">
+        <div class="photo ${p.foto ? '' : 'empty'}" ${p.foto ? `style="background-image:url(${p.foto})"` : ''}></div>
+        <div class="body">
+          <div class="nombre">${escapeHtml(p.nombre || 'Modelo sin nombre')}</div>
+          <div class="meta">${escapeHtml(p.medida || '')}</div>
+          <div class="meta">1 caja cubre ${p.rendimiento} m²</div>
+          ${p.precio ? `<div class="precio">${money(p.precio)} / m²</div>` : ''}
+          <div class="actions">
+            <button class="btn btn-ghost btn-sm" onclick="__ceram.calcularCon('${p.id}')">Calcular</button>
+            <a class="btn btn-glaze btn-sm" href="${waLink('Hola! Me interesa el modelo ' + (p.nombre||'') + '.')}" target="_blank">WhatsApp</a>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str == null ? '' : String(str);
+    return d.innerHTML;
+  }
+
+  function waLink(text){
+    return `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(text)}`;
+  }
+
+  // ---------- Calculator ----------
+  function renderCalcSelect(){
+    const sel = $('#calcProducto');
+    sel.innerHTML = '<option value="">Elegí un modelo</option>' +
+      productos.map(p => `<option value="${p.id}">${escapeHtml(p.nombre)} (${escapeHtml(p.medida||'')})</option>`).join('');
+
+    const selForm = $('#fProducto');
+    selForm.innerHTML = '<option value="">No estoy seguro</option>' +
+      productos.map(p => `<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
+  }
+
+  function calcularCon(id){
+    $('#calcProducto').value = id;
+    $('#manualFields').classList.remove('show');
+    document.getElementById('calculadora').scrollIntoView({behavior:'smooth'});
+    $('#calcM2').focus();
+  }
+
+  function getCalcParams(){
+    const manual = $('#manualFields').classList.contains('show');
+    if(manual){
+      const rendimiento = parseFloat($('#manRend').value);
+      const pegKgM2 = parseFloat($('#manPeg').value) || 0;
+      const pegBolsa = parseFloat($('#manPegBolsa').value) || 1;
+      const plasLM2 = parseFloat($('#manPlas').value) || 0;
+      const plasEnv = parseFloat($('#manPlasEnv').value) || 1;
+      if(!rendimiento || rendimiento <= 0) return null;
+      return {rendimiento, pegKgM2, pegBolsa, plasLM2, plasEnv};
+    }else{
+      const id = $('#calcProducto').value;
+      const p = productos.find(x => x.id === id);
+      if(!p) return null;
+      return {
+        rendimiento: parseFloat(p.rendimiento),
+        pegKgM2: parseFloat(p.pegamentoKgM2) || 0,
+        pegBolsa: parseFloat(p.pegamentoBolsaKg) || 1,
+        plasLM2: parseFloat(p.plasticolLM2) || 0,
+        plasEnv: parseFloat(p.plasticolEnvaseL) || 1
+      };
+    }
+  }
+
+  function calcular(){
+    const m2 = parseFloat($('#calcM2').value);
+    const params = getCalcParams();
+    const box = $('#calcResults');
+    if(!m2 || m2 <= 0){
+      box.innerHTML = '<p class="results-placeholder">Ingresá los metros cuadrados a cubrir.</p>';
+      return;
+    }
+    if(!params){
+      box.innerHTML = '<p class="results-placeholder">Elegí un modelo del catálogo o ingresá el rendimiento manual.</p>';
+      return;
+    }
+    const cajasExactas = Math.ceil(m2 / params.rendimiento);
+    const cajasConMargen = Math.ceil((m2 * 1.1) / params.rendimiento);
+    const pegTotalKg = m2 * params.pegKgM2;
+    const bolsas = params.pegKgM2 > 0 ? Math.ceil(pegTotalKg / params.pegBolsa) : 0;
+    const plasTotalL = m2 * params.plasLM2;
+    const envases = params.plasLM2 > 0 ? Math.ceil(plasTotalL / params.plasEnv) : 0;
+
+    box.innerHTML = `
+      <div class="result-row">
+        <div class="result-num">${cajasConMargen}</div>
+        <div class="result-label">cajas recomendadas</div>
+        <div class="result-sub">Incluye 10% extra para cortes y roturas · sin margen: ${cajasExactas} cajas</div>
+      </div>
+      <div class="result-row">
+        <div class="result-num">${bolsas || '—'}</div>
+        <div class="result-label">bolsas de pegamento de ${params.pegBolsa} kg</div>
+        <div class="result-sub">${pegTotalKg > 0 ? '≈ ' + pegTotalKg.toFixed(1) + ' kg en total' : ''}</div>
+      </div>
+      <div class="result-row">
+        <div class="result-num">${envases || '—'}</div>
+        <div class="result-label">envases de plasticol de ${params.plasEnv} L</div>
+        <div class="result-sub">${plasTotalL > 0 ? '≈ ' + plasTotalL.toFixed(1) + ' L en total' : ''}</div>
+      </div>
+    `;
+  }
+
+  // ---------- Contact form ----------
+  async function sendForm(){
+    const nombre = $('#fNombre').value.trim();
+    const telefono = $('#fTelefono').value.trim();
+    const productoId = $('#fProducto').value;
+    const mensaje = $('#fMensaje').value.trim();
+    const statusEl = $('#formStatus');
+
+    if(!nombre || !telefono){
+      statusEl.textContent = 'Completá al menos tu nombre y teléfono.';
+      statusEl.className = 'status-msg show status-err';
+      return;
+    }
+
+    const producto = productos.find(p => p.id === productoId);
+    const pedido = {
+      fecha: new Date().toISOString(),
+      nombre, telefono,
+      producto: producto ? producto.nombre : '',
+      mensaje
+    };
+    const ok = await saveOnePedido(pedido);
+
+    const waText = `Hola! Soy ${nombre}.${producto ? ' Me interesa el modelo ' + producto.nombre + '.' : ''} ${mensaje}`;
+    window.open(waLink(waText), '_blank');
+
+    statusEl.textContent = ok ? '¡Listo! Te vamos a contestar a la brevedad.' : 'Se envió el mensaje por WhatsApp, pero no se pudo guardar la copia interna.';
+    statusEl.className = 'status-msg show ' + (ok ? 'status-ok' : 'status-err');
+    $('#fNombre').value=''; $('#fTelefono').value=''; $('#fMensaje').value=''; $('#fProducto').value='';
+  }
+
+  // ---------- Admin: products ----------
+  function renderAdminProducts(){
+    const list = $('#productList');
+    if(!productos.length){
+      list.innerHTML = '<p class="hint">No hay productos cargados todavía.</p>';
+      return;
+    }
+    list.innerHTML = productos.map(p => `
+      <div class="admin-row">
+        ${p.foto ? `<img src="${p.foto}">` : '<div class="noimg"></div>'}
+        <div class="info">
+          <div class="n">${escapeHtml(p.nombre)}</div>
+          <div class="m">${escapeHtml(p.medida||'')} · 1 caja = ${p.rendimiento} m²${p.precio ? ' · ' + money(p.precio) + '/m²' : ''}</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="__ceram.editProduct('${p.id}')">Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="__ceram.deleteProduct('${p.id}')">Eliminar</button>
+      </div>
+    `).join('');
+  }
+
+  function openProductForm(product){
+    $('#productForm').classList.add('show');
+    $('#formTitle').textContent = product ? 'Editar producto' : 'Nuevo producto';
+    $('#pId').value = product ? product.id : '';
+    $('#pNombre').value = product ? product.nombre : '';
+    $('#pMedida').value = product ? product.medida : '';
+    $('#pRend').value = product ? product.rendimiento : '';
+    $('#pPrecio').value = product ? (product.precio || '') : '';
+    $('#pPeg').value = product ? product.pegamentoKgM2 : 4;
+    $('#pPegBolsa').value = product ? product.pegamentoBolsaKg : 25;
+    $('#pPlas').value = product ? product.plasticolLM2 : 0.5;
+    $('#pPlasEnv').value = product ? product.plasticolEnvaseL : 4;
+    $('#pFoto').value = '';
+    $('#productForm').dataset.existingFoto = product ? (product.foto || '') : '';
+    $('#pNombre').focus();
+  }
+
+  function closeProductForm(){
+    $('#productForm').classList.remove('show');
+  }
+
+  async function saveProduct(){
+    const nombre = $('#pNombre').value.trim();
+    const rendimiento = parseFloat($('#pRend').value);
+    const statusEl = $('#prodStatus');
+    if(!nombre || !rendimiento || rendimiento <= 0){
+      statusEl.textContent = 'Completá al menos el nombre y los m² por caja.';
+      statusEl.className = 'status-msg show status-err';
+      return;
+    }
+    const existingId = $('#pId').value || null;
+    let foto = $('#productForm').dataset.existingFoto || '';
+    const fileInput = $('#pFoto');
+    if(fileInput.files && fileInput.files[0]){
+      try{
+        foto = await resizeImageToBase64(fileInput.files[0]);
+      }catch(e){
+        statusEl.textContent = 'No se pudo procesar la foto. Se guardó el resto de los datos.';
+        statusEl.className = 'status-msg show status-err';
+      }
+    }
+    const data = {
+      nombre, foto,
+      medida: $('#pMedida').value.trim(),
+      rendimiento,
+      precio: $('#pPrecio').value ? parseFloat($('#pPrecio').value) : null,
+      pegamentoKgM2: parseFloat($('#pPeg').value) || 0,
+      pegamentoBolsaKg: parseFloat($('#pPegBolsa').value) || 25,
+      plasticolLM2: parseFloat($('#pPlas').value) || 0,
+      plasticolEnvaseL: parseFloat($('#pPlasEnv').value) || 4
+    };
+    const savedId = await saveOneProducto(data, existingId);
+    const ok = !!savedId;
+    statusEl.textContent = ok ? 'Producto guardado.' : 'No se pudo guardar. Revisá que Firebase esté bien configurado.';
+    statusEl.className = 'status-msg show ' + (ok ? 'status-ok' : 'status-err');
+    if(ok){
+      if(existingId){
+        const idx = productos.findIndex(p => p.id === existingId);
+        if(idx >= 0) productos[idx] = {id: existingId, ...data};
+      }else{
+        productos.push({id: savedId, ...data});
+      }
+      closeProductForm();
+      renderAdminProducts();
+      renderCatalog();
+      renderCalcSelect();
+      renderHeroTiles();
+    }
+  }
+
+  function editProduct(id){
+    const p = productos.find(x => x.id === id);
+    if(p) openProductForm(p);
+  }
+
+  async function deleteProduct(id){
+    if(!confirm('¿Eliminar este producto del catálogo?')) return;
+    const ok = await deleteOneProducto(id);
+    if(ok){
+      productos = productos.filter(p => p.id !== id);
+      renderAdminProducts();
+      renderCatalog();
+      renderCalcSelect();
+      renderHeroTiles();
+    }
+  }
+
+  // ---------- Bulk import from Excel/CSV ----------
+  function readExcelFile(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+      reader.onload = (e) => {
+        try{
+          const wb = XLSX.read(e.target.result, {type:'array'});
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+          resolve(rows);
+        }catch(err){
+          reject(err);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function getField(row, names){
+    const keys = Object.keys(row);
+    for(const name of names){
+      const k = keys.find(kk => kk.trim().toLowerCase() === name);
+      if(k !== undefined && row[k] !== '') return row[k];
+    }
+    return '';
+  }
+
+  async function importExcel(){
+    const fileInput = $('#excelFile');
+    const statusEl = $('#prodStatus');
+    if(!fileInput.files || !fileInput.files[0]){
+      statusEl.textContent = 'Elegí un archivo primero.';
+      statusEl.className = 'status-msg show status-err';
+      return;
+    }
+    statusEl.textContent = 'Importando…';
+    statusEl.className = 'status-msg show status-ok';
+    try{
+      const rows = await readExcelFile(fileInput.files[0]);
+      let cargados = 0, saltados = 0;
+      for(const row of rows){
+        const nombre = String(getField(row, ['nombre'])).trim();
+        if(!nombre){ saltados++; continue; }
+        const precioRaw = getField(row, ['precio']);
+        const medida = String(getField(row, ['medida'])).trim();
+        const rendRaw = getField(row, ['rendimiento']);
+        const data = {
+          nombre,
+          foto: '',
+          medida,
+          rendimiento: rendRaw ? parseFloat(rendRaw) : 1,
+          precio: precioRaw !== '' ? parseFloat(precioRaw) : null,
+          pegamentoKgM2: 4,
+          pegamentoBolsaKg: 25,
+          plasticolLM2: 0.5,
+          plasticolEnvaseL: 4
+        };
+        const id = await saveOneProducto(data, null);
+        if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
+      }
+      statusEl.textContent = `Se cargaron ${cargados} productos.${saltados ? ' ' + saltados + ' filas se saltearon (sin nombre o con error).' : ''} Podés agregarles foto editando cada uno.`;
+      statusEl.className = 'status-msg show status-ok';
+      fileInput.value = '';
+      renderAdminProducts();
+      renderCatalog();
+      renderCalcSelect();
+      renderHeroTiles();
+    }catch(e){
+      console.error(e);
+      statusEl.textContent = 'No se pudo leer el archivo. Verificá que sea .xlsx, .xls o .csv.';
+      statusEl.className = 'status-msg show status-err';
+    }
+  }
+
+  // ---------- Admin: pedidos ----------
+  function renderPedidos(){
+    const list = $('#pedidosList');
+    if(!pedidos.length){
+      list.innerHTML = '<p class="hint">Todavía no llegaron consultas.</p>';
+      return;
+    }
+    list.innerHTML = pedidos.map(p => `
+      <div class="lead">
+        <div class="top">
+          <span>${escapeHtml(p.nombre)} · ${escapeHtml(p.telefono)}${p.producto ? ' · ' + escapeHtml(p.producto) : ''}</span>
+          <span>${new Date(p.fecha).toLocaleString('es-AR')}</span>
+        </div>
+        ${p.mensaje ? `<div class="msg">${escapeHtml(p.mensaje)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  // ---------- Admin: auth & nav ----------
+  function openAdmin(){
+    $('#admin-overlay').classList.add('show');
+    $('#pinInput').value = '';
+    $('#pinError').textContent = '';
+    $('#pinScreen').style.display = 'block';
+    $('#adminContent').style.display = 'none';
+  }
+  function closeAdmin(){
+    $('#admin-overlay').classList.remove('show');
+  }
+  async function checkPin(){
+    if($('#pinInput').value === CONFIG.adminPin){
+      $('#pinScreen').style.display = 'none';
+      $('#adminContent').style.display = 'block';
+      await loadPedidos();
+      renderAdminProducts();
+      renderPedidos();
+    }else{
+      $('#pinError').textContent = 'PIN incorrecto.';
+    }
+  }
+
+  function switchTab(tab){
+    $all('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    $all('.admin-panel').forEach(p => p.classList.remove('show'));
+    $('#panel-' + tab).classList.add('show');
+  }
+
+  // ---------- Wire up ----------
+  function bindEvents(){
+    $('#openAdmin').addEventListener('click', openAdmin);
+    $('#closeAdmin').addEventListener('click', closeAdmin);
+    $('#pinSubmit').addEventListener('click', checkPin);
+    $('#pinInput').addEventListener('keydown', e => { if(e.key === 'Enter') checkPin(); });
+
+    $all('.admin-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+    $('#newProductBtn').addEventListener('click', () => openProductForm(null));
+    $('#cancelProduct').addEventListener('click', closeProductForm);
+    $('#saveProduct').addEventListener('click', saveProduct);
+
+    $('#manualToggle').addEventListener('click', () => {
+      $('#manualFields').classList.toggle('show');
+      $('#calcProducto').value = '';
+    });
+    $('#calcBtn').addEventListener('click', calcular);
+    $('#calcProducto').addEventListener('change', () => $('#manualFields').classList.remove('show'));
+
+    $('#sendForm').addEventListener('click', sendForm);
+    $('#importExcelBtn').addEventListener('click', importExcel);
+    $('#waMainBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      window.open(waLink('Hola! Quería consultar por las cerámicas.'), '_blank');
+    });
+  }
+
+  // Exposed for inline onclick handlers
+  window.__ceram = { calcularCon, editProduct, deleteProduct };
+
+  // ---------- Init ----------
+  async function init(){
+    bindEvents();
+    if(!firebaseConfigured){
+      $('#configBanner').classList.add('show');
+    }
+    $('#catalogGrid').innerHTML = '<div class="empty-state">Cargando catálogo…</div>';
+    await loadProductos();
+    renderHeroTiles();
+    renderCatalog();
+    renderCalcSelect();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
