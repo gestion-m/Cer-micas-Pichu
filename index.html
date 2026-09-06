@@ -310,10 +310,8 @@
     <div class="contact-grid">
       <div>
         <h3 style="font-size:17px;margin-bottom:12px;">Formas de pago</h3>
-        <ul class="pago-list">
-          <li>Transferencia bancaria</li>
-          <li>Cuotas</li>
-        </ul>
+        <ul class="pago-list" id="pagoList"></ul>
+        <p id="bizDireccion" style="margin-top:16px;font-size:14.5px;display:none;"></p>
         <div style="margin-top:26px;">
           <a href="#" id="waMainBtn" target="_blank" class="btn btn-glaze">Escribinos por WhatsApp</a>
         </div>
@@ -364,6 +362,7 @@
     <div class="admin-tabs">
       <button class="admin-tab active" data-tab="productos">Productos</button>
       <button class="admin-tab" data-tab="pedidos">Consultas recibidas</button>
+      <button class="admin-tab" data-tab="config">Configuración</button>
     </div>
 
     <div class="admin-panel show" id="panel-productos">
@@ -375,7 +374,7 @@
 
       <div class="admin-form show" style="margin-bottom:20px;">
         <h3 style="font-size:16px;">Importar varios productos desde Excel</h3>
-        <p class="hint">Funciona con listas de proveedor (columnas tipo "Descripción" / "Precio"). El archivo puede tener varias hojas — elegís cuál importar. Podés aplicar un % de aumento sobre el precio del proveedor antes de cargarlo. Acepta .xlsx, .xls o .csv.</p>
+        <p class="hint">Funciona con listas de proveedor (columnas tipo "Descripción" / "Precio"). El archivo puede tener varias hojas — elegís cuál importar. Podés aplicar un % de aumento sobre el precio del proveedor antes de cargarlo. Si el Excel tiene hojas de embalaje (ej. "EMBALAJE CORTINES"), se usan automáticamente para calcular cuántos m² trae cada caja según la marca y medida de cada modelo. Acepta .xlsx, .xls o .csv.</p>
         <div class="import-row">
           <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
         </div>
@@ -449,6 +448,32 @@
       <p class="hint" style="margin:20px 0;">Consultas enviadas desde el formulario de contacto.</p>
       <div id="pedidosList"></div>
     </div>
+
+    <div class="admin-panel" id="panel-config">
+      <div class="status-msg" id="configStatus"></div>
+      <div class="admin-form show" style="margin-top:20px;">
+        <h3>Datos del negocio</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label for="cfgWhatsapp">WhatsApp (con código de país, sin + ni espacios)</label>
+            <input type="text" id="cfgWhatsapp" placeholder="ej: 5491122334455">
+          </div>
+          <div class="field">
+            <label for="cfgDireccion">Dirección (opcional)</label>
+            <input type="text" id="cfgDireccion" placeholder="ej: Grand Bourg, Bs. As.">
+          </div>
+          <div class="field full">
+            <label for="cfgMediosPago">Medios de pago (uno por línea)</label>
+            <textarea id="cfgMediosPago" rows="4" placeholder="Transferencia bancaria&#10;Cuotas&#10;Mercado Pago: @tuusuario"></textarea>
+          </div>
+          <div class="field">
+            <label for="cfgPin">Cambiar PIN del panel (dejar vacío para no cambiarlo)</label>
+            <input type="password" id="cfgPin" inputmode="numeric" placeholder="nuevo PIN">
+          </div>
+        </div>
+        <button class="btn btn-clay btn-sm" id="saveConfigBtn" style="margin-top:14px;">Guardar</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -488,6 +513,49 @@
 
   let productos = [];
   let pedidos = [];
+  let BIZ = {
+    whatsapp: CONFIG.whatsapp,
+    direccion: '',
+    mediosPago: 'Transferencia bancaria\nCuotas',
+    pin: CONFIG.adminPin
+  };
+
+  async function loadConfig(){
+    if(!db) return;
+    try{
+      const doc = await db.collection('config').doc('negocio').get();
+      if(doc.exists){
+        BIZ = {...BIZ, ...doc.data()};
+      }
+    }catch(e){
+      console.error('Error cargando configuración', e);
+    }
+  }
+
+  async function saveConfig(data){
+    if(!db) return false;
+    try{
+      await db.collection('config').doc('negocio').set(data, {merge:true});
+      BIZ = {...BIZ, ...data};
+      return true;
+    }catch(e){
+      console.error('Error guardando configuración', e);
+      return false;
+    }
+  }
+
+  function renderBizInfo(){
+    const list = $('#pagoList');
+    const lineas = (BIZ.mediosPago || '').split('\n').map(l => l.trim()).filter(Boolean);
+    list.innerHTML = lineas.map(l => `<li>${escapeHtml(l)}</li>`).join('');
+    const dir = $('#bizDireccion');
+    if(BIZ.direccion){
+      dir.textContent = '📍 ' + BIZ.direccion;
+      dir.style.display = 'block';
+    }else{
+      dir.style.display = 'none';
+    }
+  }
 
   // ---------- Storage helpers (Firebase Firestore) ----------
   async function loadProductos(){
@@ -630,7 +698,7 @@
   }
 
   function waLink(text){
-    return `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(text)}`;
+    return `https://wa.me/${BIZ.whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
   // ---------- Calculator ----------
@@ -853,6 +921,7 @@
 
   // ---------- Bulk import from Excel/CSV ----------
   let importWorkbook = null;
+  let embalajeIndex = [];
 
   function readWorkbook(file){
     return new Promise((resolve, reject) => {
@@ -916,6 +985,57 @@
     return m ? m[0].replace(/\s+/g,'') : '';
   }
 
+  function stripAccents(str){
+    return String(str == null ? '' : str).normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }
+
+  function normalizeFormato(v){
+    return stripAccents(String(v)).replace(/\s+/g,'').replace(',', '.').toLowerCase();
+  }
+
+  // Recorre las hojas "EMBALAJE ..." del archivo y arma un índice: por marca -> por formato -> m² por caja
+  function buildEmbalajeIndex(workbook){
+    const idx = [];
+    workbook.SheetNames.forEach(name => {
+      const norm = stripAccents(name).toLowerCase();
+      if(!norm.startsWith('embalaje')) return;
+      const keyword = norm.replace('embalaje','').trim();
+      if(!keyword) return;
+      const sheet = workbook.Sheets[name];
+      const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+      let headerRowIdx = -1, formatoCol = -1, m2Col = -1;
+      for(let r=0; r<Math.min(rows.length,10); r++){
+        const row = rows[r];
+        const fc = row.findIndex(v => stripAccents(normHeader(v)).includes('formato'));
+        const mc = row.findIndex(v => {
+          const h = stripAccents(normHeader(v)).replace(/\s+/g,'');
+          return h.includes('m2xcaja') || h.includes('m2porcaja') || h.includes('m2caja');
+        });
+        if(fc !== -1 && mc !== -1){ headerRowIdx = r; formatoCol = fc; m2Col = mc; break; }
+      }
+      if(headerRowIdx === -1) return;
+      const map = {};
+      for(let r=headerRowIdx+1; r<rows.length; r++){
+        const row = rows[r];
+        const formato = row[formatoCol];
+        const m2 = row[m2Col];
+        if(!formato || m2 === '' || m2 === undefined) continue;
+        const val = parseFloat(m2);
+        if(!isNaN(val)) map[normalizeFormato(formato)] = val;
+      }
+      idx.push({keyword, map});
+    });
+    return idx;
+  }
+
+  function findRendimientoPorMarca(embalajeIndex, brand, medida){
+    if(!brand || !medida || !embalajeIndex.length) return null;
+    const brandNorm = stripAccents(brand).toLowerCase();
+    const entry = embalajeIndex.find(e => brandNorm.includes(e.keyword));
+    if(!entry) return null;
+    return entry.map[normalizeFormato(medida)] || null;
+  }
+
   async function onExcelFileChosen(){
     const fileInput = $('#excelFile');
     const statusEl = $('#prodStatus');
@@ -929,6 +1049,7 @@
     }
     try{
       importWorkbook = await readWorkbook(fileInput.files[0]);
+      embalajeIndex = buildEmbalajeIndex(importWorkbook);
       const select = $('#excelSheetSelect');
       select.innerHTML = importWorkbook.SheetNames.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
       sheetRow.style.display = 'flex';
@@ -962,16 +1083,36 @@
     statusEl.textContent = 'Importando…';
     statusEl.className = 'status-msg show status-ok';
 
-    let cargados = 0, saltados = 0;
+    // Detecta la marca/sección vigente en cada fila (líneas como "CERAMICA CORTINES" que
+    // aparecen antes de un grupo de productos, sin precio).
+    let currentBrand = '';
+    for(let r=0; r<header.rowIndex; r++){
+      const v = String((rows[r] && rows[r][header.nameCol]) || '').trim();
+      if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = v;
+    }
+
+    let cargados = 0, saltados = 0, autoRend = 0;
     for(let r = header.rowIndex + 1; r < rows.length; r++){
       const row = rows[r];
       if(!row) { saltados++; continue; }
-      const nombre = String(row[header.nameCol] || '').trim();
+      const nombreRaw = row[header.nameCol];
       const precioBase = parsePrecio(row[header.priceCol]);
-      if(!nombre || precioBase === null){ saltados++; continue; }
+      if(precioBase === null){
+        const v = String(nombreRaw || '').trim();
+        if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = v;
+        saltados++;
+        continue;
+      }
+      const nombre = String(nombreRaw || '').trim();
+      if(!nombre){ saltados++; continue; }
       const precioFinal = markupPct ? Math.round(precioBase * (1 + markupPct/100)) : precioBase;
       const medida = header.medidaCol !== -1 ? String(row[header.medidaCol] || '').trim() : guessMedida(nombre);
-      const rendimiento = header.rendCol !== -1 ? (parseFloat(row[header.rendCol]) || 1) : 1;
+      let rendimiento = header.rendCol !== -1 ? parseFloat(row[header.rendCol]) : null;
+      if(!rendimiento){
+        const auto = findRendimientoPorMarca(embalajeIndex, currentBrand, medida);
+        if(auto){ rendimiento = auto; autoRend++; }
+      }
+      if(!rendimiento) rendimiento = 1;
       const data = {
         nombre, foto: '', medida, rendimiento,
         precio: precioFinal,
@@ -981,7 +1122,7 @@
       const id = await saveOneProducto(data, null);
       if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
     }
-    statusEl.textContent = `Se cargaron ${cargados} productos desde "${sheetName}".${saltados ? ' ' + saltados + ' filas se saltearon (sin nombre/precio válido).' : ''} Ahora podés agregarles foto editando cada uno.`;
+    statusEl.textContent = `Se cargaron ${cargados} productos desde "${sheetName}"${autoRend ? ' (' + autoRend + ' con el rendimiento por caja calculado automáticamente)' : ''}.${saltados ? ' ' + saltados + ' filas se saltearon.' : ''} Ahora podés agregarles foto editando cada uno.`;
     statusEl.className = 'status-msg show status-ok';
     $('#excelFile').value = '';
     $('#excelSheetRow').style.display = 'none';
@@ -1024,14 +1165,37 @@
     $('#admin-overlay').classList.remove('show');
   }
   async function checkPin(){
-    if($('#pinInput').value === CONFIG.adminPin){
+    if($('#pinInput').value === BIZ.pin){
       $('#pinScreen').style.display = 'none';
       $('#adminContent').style.display = 'block';
       await loadPedidos();
       renderAdminProducts();
       renderPedidos();
+      $('#cfgWhatsapp').value = BIZ.whatsapp || '';
+      $('#cfgDireccion').value = BIZ.direccion || '';
+      $('#cfgMediosPago').value = BIZ.mediosPago || '';
+      $('#cfgPin').value = '';
     }else{
       $('#pinError').textContent = 'PIN incorrecto.';
+    }
+  }
+
+  async function saveBizConfig(){
+    const statusEl = $('#configStatus');
+    const data = {
+      whatsapp: $('#cfgWhatsapp').value.trim(),
+      direccion: $('#cfgDireccion').value.trim(),
+      mediosPago: $('#cfgMediosPago').value
+    };
+    if($('#cfgPin').value.trim()){
+      data.pin = $('#cfgPin').value.trim();
+    }
+    const ok = await saveConfig(data);
+    statusEl.textContent = ok ? 'Configuración guardada.' : 'No se pudo guardar. Revisá la conexión con Firebase.';
+    statusEl.className = 'status-msg show ' + (ok ? 'status-ok' : 'status-err');
+    if(ok){
+      renderBizInfo();
+      $('#cfgPin').value = '';
     }
   }
 
@@ -1064,6 +1228,7 @@
     $('#sendForm').addEventListener('click', sendForm);
     $('#excelFile').addEventListener('change', onExcelFileChosen);
     $('#importExcelBtn').addEventListener('click', importExcel);
+    $('#saveConfigBtn').addEventListener('click', saveBizConfig);
     $('#waMainBtn').addEventListener('click', (e) => {
       e.preventDefault();
       window.open(waLink('Hola! Quería consultar por las cerámicas.'), '_blank');
@@ -1081,6 +1246,8 @@
     }
     $('#catalogGrid').innerHTML = '<div class="empty-state">Cargando catálogo…</div>';
     await loadProductos();
+    await loadConfig();
+    renderBizInfo();
     renderHeroTiles();
     renderCatalog();
     renderCalcSelect();
