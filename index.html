@@ -199,6 +199,18 @@
   .import-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;}
   .import-row input[type=file]{font-size:13px;}
 
+  .promo-banner{display:none;background:var(--glaze);color:#fff;}
+  .promo-banner.show{display:block;}
+  .promo-inner{display:flex;align-items:center;gap:20px;padding:20px 24px;}
+  .promo-photo{width:64px;height:64px;flex-shrink:0;background-size:cover;background-position:center;background-color:rgba(255,255,255,0.15);display:none;}
+  .promo-photo.show{display:block;}
+  .promo-eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.85;}
+  .promo-text h2{font-size:19px;color:#fff;margin-top:2px;}
+  .promo-text p{font-size:14px;margin:4px 0 0;opacity:0.95;}
+
+  .filter-bar{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
+  .filter-bar .field{margin-bottom:0;min-width:160px;flex:1;}
+
   @media(max-width:760px){
     .hero-grid{grid-template-columns:1fr;}
     .hero h1{max-width:none;font-size:32px;}
@@ -214,6 +226,17 @@
 
 <div class="config-banner" id="configBanner">
   Falta configurar Firebase para que la página guarde datos. Mirá la sección CONFIG al principio del archivo.
+</div>
+
+<div id="promoBanner" class="promo-banner">
+  <div class="wrap promo-inner">
+    <div class="promo-photo" id="promoPhoto"></div>
+    <div class="promo-text">
+      <div class="promo-eyebrow">Promoción</div>
+      <h2 id="promoTitulo"></h2>
+      <p id="promoDescripcion"></p>
+    </div>
+  </div>
 </div>
 
 <header>
@@ -249,6 +272,16 @@
     <div class="section-head">
       <h2>Catálogo</h2>
       <p>Cada modelo indica la medida, cuántos m² cubre una caja y el precio si está cargado.</p>
+    </div>
+    <div class="filter-bar">
+      <div class="field">
+        <label for="filterCalidad">Calidad</label>
+        <select id="filterCalidad"><option value="">Todas</option></select>
+      </div>
+      <div class="field">
+        <label for="filterMarca">Marca</label>
+        <select id="filterMarca"><option value="">Todas</option></select>
+      </div>
     </div>
     <div id="catalogGrid"></div>
   </section>
@@ -311,9 +344,10 @@
       <div>
         <h3 style="font-size:17px;margin-bottom:12px;">Formas de pago</h3>
         <ul class="pago-list" id="pagoList"></ul>
-        <p id="bizDireccion" style="margin-top:16px;font-size:14.5px;display:none;"></p>
-        <div style="margin-top:26px;">
+        <a id="bizDireccion" href="#" target="_blank" style="margin-top:16px;font-size:14.5px;display:none;color:inherit;text-decoration:underline;"></a>
+        <div style="margin-top:26px;display:flex;gap:10px;flex-wrap:wrap;">
           <a href="#" id="waMainBtn" target="_blank" class="btn btn-glaze">Escribinos por WhatsApp</a>
+          <a href="#" id="mpMainBtn" target="_blank" class="btn btn-clay" style="display:none;">Pagar con Mercado Pago</a>
         </div>
       </div>
       <div class="form-box">
@@ -362,6 +396,7 @@
     <div class="admin-tabs">
       <button class="admin-tab active" data-tab="productos">Productos</button>
       <button class="admin-tab" data-tab="pedidos">Consultas recibidas</button>
+      <button class="admin-tab" data-tab="promo">Promoción</button>
       <button class="admin-tab" data-tab="config">Configuración</button>
     </div>
 
@@ -387,6 +422,15 @@
             <label for="excelMarkup">% de aumento sobre el precio (opcional)</label>
             <input type="number" id="excelMarkup" value="0" step="1">
           </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="excelCalidad">Calidad de este lote (opcional)</label>
+            <select id="excelCalidad">
+              <option value="">Sin especificar</option>
+              <option value="1ra calidad">1ra calidad</option>
+              <option value="2da calidad">2da calidad</option>
+              <option value="3ra calidad">3ra calidad</option>
+            </select>
+          </div>
         </div>
         <div class="import-row">
           <button class="btn btn-glaze btn-sm" id="importExcelBtn" disabled>Elegí un archivo primero</button>
@@ -409,6 +453,19 @@
           <div class="field">
             <label for="pMedida">Medida</label>
             <input type="text" id="pMedida" placeholder="ej: 60x60 cm">
+          </div>
+          <div class="field">
+            <label for="pMarca">Marca (opcional)</label>
+            <input type="text" id="pMarca" placeholder="ej: Cortines">
+          </div>
+          <div class="field">
+            <label for="pCalidad">Calidad (opcional)</label>
+            <select id="pCalidad">
+              <option value="">Sin especificar</option>
+              <option value="1ra calidad">1ra calidad</option>
+              <option value="2da calidad">2da calidad</option>
+              <option value="3ra calidad">3ra calidad</option>
+            </select>
           </div>
           <div class="field">
             <label for="pRend">m² que cubre 1 caja</label>
@@ -449,14 +506,40 @@
       <div id="pedidosList"></div>
     </div>
 
+    <div class="admin-panel" id="panel-promo">
+      <div class="status-msg" id="promoStatus"></div>
+      <div class="admin-form show" style="margin-top:20px;">
+        <h3>Promoción destacada</h3>
+        <p class="hint">Si la activás, aparece como una franja arriba de todo apenas alguien entra a la página.</p>
+        <div class="form-grid">
+          <div class="field full">
+            <label><input type="checkbox" id="promoActiva" style="width:auto;display:inline-block;margin-right:8px;">Mostrar la promoción en la página</label>
+          </div>
+          <div class="field">
+            <label for="promoTituloInput">Título</label>
+            <input type="text" id="promoTituloInput" placeholder="ej: 2x1 en pastinas esta semana">
+          </div>
+          <div class="field">
+            <label for="promoFoto">Foto (opcional)</label>
+            <input type="file" id="promoFoto" accept="image/*">
+          </div>
+          <div class="field full">
+            <label for="promoDescInput">Descripción</label>
+            <textarea id="promoDescInput" rows="2" placeholder="Contá de qué se trata la promo"></textarea>
+          </div>
+        </div>
+        <button class="btn btn-clay btn-sm" id="savePromoBtn" style="margin-top:14px;">Guardar</button>
+      </div>
+    </div>
+
     <div class="admin-panel" id="panel-config">
       <div class="status-msg" id="configStatus"></div>
       <div class="admin-form show" style="margin-top:20px;">
         <h3>Datos del negocio</h3>
         <div class="form-grid">
           <div class="field">
-            <label for="cfgWhatsapp">WhatsApp (con código de país, sin + ni espacios)</label>
-            <input type="text" id="cfgWhatsapp" placeholder="ej: 5491122334455">
+            <label for="cfgWhatsapp">WhatsApp (como lo tengas anotado, con o sin 0/15 — lo convertimos solos)</label>
+            <input type="text" id="cfgWhatsapp" placeholder="ej: 011 3558-6928 u 11 3558-6928">
           </div>
           <div class="field">
             <label for="cfgDireccion">Dirección (opcional)</label>
@@ -469,6 +552,11 @@
           <div class="field">
             <label for="cfgPin">Cambiar PIN del panel (dejar vacío para no cambiarlo)</label>
             <input type="password" id="cfgPin" inputmode="numeric" placeholder="nuevo PIN">
+          </div>
+          <div class="field full">
+            <label for="cfgMpLink">Link de pago de Mercado Pago (opcional)</label>
+            <input type="text" id="cfgMpLink" placeholder="https://link.mercadopago.com.ar/...">
+            <div class="hint">Lo generás desde tu cuenta de Mercado Pago: "Cobrar" → "Crear link de pago". Si lo dejás vacío, no se muestra el botón de pago.</div>
           </div>
         </div>
         <button class="btn btn-clay btn-sm" id="saveConfigBtn" style="margin-top:14px;">Guardar</button>
@@ -517,7 +605,8 @@
     whatsapp: CONFIG.whatsapp,
     direccion: '',
     mediosPago: 'Transferencia bancaria\nCuotas',
-    pin: CONFIG.adminPin
+    pin: CONFIG.adminPin,
+    mercadoPagoLink: ''
   };
 
   async function loadConfig(){
@@ -529,6 +618,50 @@
       }
     }catch(e){
       console.error('Error cargando configuración', e);
+    }
+  }
+
+  let PROMO = {activa:false, titulo:'', descripcion:'', foto:''};
+
+  async function loadPromo(){
+    if(!db) return;
+    try{
+      const doc = await db.collection('config').doc('promo').get();
+      if(doc.exists){
+        PROMO = {...PROMO, ...doc.data()};
+      }
+    }catch(e){
+      console.error('Error cargando promoción', e);
+    }
+  }
+
+  async function savePromo(data){
+    if(!db) return false;
+    try{
+      await db.collection('config').doc('promo').set(data, {merge:true});
+      PROMO = {...PROMO, ...data};
+      return true;
+    }catch(e){
+      console.error('Error guardando promoción', e);
+      return false;
+    }
+  }
+
+  function renderPromo(){
+    const banner = $('#promoBanner');
+    if(PROMO.activa && (PROMO.titulo || PROMO.descripcion)){
+      $('#promoTitulo').textContent = PROMO.titulo || '';
+      $('#promoDescripcion').textContent = PROMO.descripcion || '';
+      const photo = $('#promoPhoto');
+      if(PROMO.foto){
+        photo.style.backgroundImage = `url(${PROMO.foto})`;
+        photo.classList.add('show');
+      }else{
+        photo.classList.remove('show');
+      }
+      banner.classList.add('show');
+    }else{
+      banner.classList.remove('show');
     }
   }
 
@@ -544,6 +677,18 @@
     }
   }
 
+  function normalizeWhatsappAR(input){
+    let n = String(input || '').replace(/\D/g,'');
+    if(!n) return '';
+    if(n.startsWith('54')){
+      if(!n.startsWith('549')) n = '549' + n.slice(2);
+      return n;
+    }
+    if(n.startsWith('0')) n = n.slice(1);
+    if(n.startsWith('15')) n = n.slice(2);
+    return '549' + n;
+  }
+
   function renderBizInfo(){
     const list = $('#pagoList');
     const lineas = (BIZ.mediosPago || '').split('\n').map(l => l.trim()).filter(Boolean);
@@ -551,9 +696,17 @@
     const dir = $('#bizDireccion');
     if(BIZ.direccion){
       dir.textContent = '📍 ' + BIZ.direccion;
+      dir.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(BIZ.direccion);
       dir.style.display = 'block';
     }else{
       dir.style.display = 'none';
+    }
+    const mpBtn = $('#mpMainBtn');
+    if(BIZ.mercadoPagoLink){
+      mpBtn.href = BIZ.mercadoPagoLink;
+      mpBtn.style.display = 'inline-flex';
+    }else{
+      mpBtn.style.display = 'none';
     }
   }
 
@@ -667,19 +820,42 @@
   }
 
   // ---------- Render: catalog ----------
+  function renderFilterOptions(){
+    const calidadSel = $('#filterCalidad');
+    const marcaSel = $('#filterMarca');
+    const calidadActual = calidadSel.value;
+    const marcaActual = marcaSel.value;
+    const calidades = [...new Set(productos.map(p => p.calidad).filter(Boolean))].sort();
+    const marcas = [...new Set(productos.map(p => p.marca).filter(Boolean))].sort();
+    calidadSel.innerHTML = '<option value="">Todas</option>' + calidades.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    marcaSel.innerHTML = '<option value="">Todas</option>' + marcas.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+    if(calidades.includes(calidadActual)) calidadSel.value = calidadActual;
+    if(marcas.includes(marcaActual)) marcaSel.value = marcaActual;
+  }
+
   function renderCatalog(){
     const grid = $('#catalogGrid');
     if(!productos.length){
       grid.innerHTML = '<div class="empty-state">Todavía no hay productos cargados. Se van a ver acá apenas se agreguen desde el panel de administración.</div>';
       return;
     }
+    const calidadF = $('#filterCalidad').value;
+    const marcaF = $('#filterMarca').value;
+    const filtrados = productos.filter(p =>
+      (!calidadF || p.calidad === calidadF) &&
+      (!marcaF || p.marca === marcaF)
+    );
+    if(!filtrados.length){
+      grid.innerHTML = '<div class="empty-state">No hay productos que coincidan con ese filtro.</div>';
+      return;
+    }
     grid.className = 'catalog-grid';
-    grid.innerHTML = productos.map(p => `
+    grid.innerHTML = filtrados.map(p => `
       <div class="card">
         <div class="photo ${p.foto ? '' : 'empty'}" ${p.foto ? `style="background-image:url(${p.foto})"` : ''}></div>
         <div class="body">
           <div class="nombre">${escapeHtml(p.nombre || 'Modelo sin nombre')}</div>
-          <div class="meta">${escapeHtml(p.medida || '')}</div>
+          <div class="meta">${escapeHtml(p.medida || '')}${p.marca ? ' · ' + escapeHtml(p.marca) : ''}${p.calidad ? ' · ' + escapeHtml(p.calidad) : ''}</div>
           <div class="meta">1 caja cubre ${p.rendimiento} m²</div>
           ${p.precio ? `<div class="precio">${money(p.precio)} / m²</div>` : ''}
           <div class="actions">
@@ -728,7 +904,7 @@
       const plasLM2 = parseFloat($('#manPlas').value) || 0;
       const plasEnv = parseFloat($('#manPlasEnv').value) || 1;
       if(!rendimiento || rendimiento <= 0) return null;
-      return {rendimiento, pegKgM2, pegBolsa, plasLM2, plasEnv};
+      return {rendimiento, pegKgM2, pegBolsa, plasLM2, plasEnv, precio:null};
     }else{
       const id = $('#calcProducto').value;
       const p = productos.find(x => x.id === id);
@@ -738,7 +914,8 @@
         pegKgM2: parseFloat(p.pegamentoKgM2) || 0,
         pegBolsa: parseFloat(p.pegamentoBolsaKg) || 1,
         plasLM2: parseFloat(p.plasticolLM2) || 0,
-        plasEnv: parseFloat(p.plasticolEnvaseL) || 1
+        plasEnv: parseFloat(p.plasticolEnvaseL) || 1,
+        precio: p.precio || null
       };
     }
   }
@@ -762,6 +939,17 @@
     const plasTotalL = m2 * params.plasLM2;
     const envases = params.plasLM2 > 0 ? Math.ceil(plasTotalL / params.plasEnv) : 0;
 
+    let totalRow = '';
+    if(params.precio){
+      const total = m2 * params.precio;
+      totalRow = `
+      <div class="result-row">
+        <div class="result-num">${money(total)}</div>
+        <div class="result-label">total estimado (${m2} m² × ${money(params.precio)}/m²)</div>
+        ${BIZ.mercadoPagoLink ? `<div style="margin-top:10px;"><a href="${BIZ.mercadoPagoLink}" target="_blank" class="btn btn-clay btn-sm">Pagar con Mercado Pago</a></div><div class="result-sub">Vas a tener que ingresar este monto en Mercado Pago al pagar.</div>` : ''}
+      </div>`;
+    }
+
     box.innerHTML = `
       <div class="result-row">
         <div class="result-num">${cajasConMargen}</div>
@@ -777,7 +965,7 @@
         <div class="result-num">${envases || '—'}</div>
         <div class="result-label">envases de plasticol de ${params.plasEnv} L</div>
         <div class="result-sub">${plasTotalL > 0 ? '≈ ' + plasTotalL.toFixed(1) + ' L en total' : ''}</div>
-      </div>
+      </div>${totalRow}
     `;
   }
 
@@ -838,6 +1026,8 @@
     $('#pId').value = product ? product.id : '';
     $('#pNombre').value = product ? product.nombre : '';
     $('#pMedida').value = product ? product.medida : '';
+    $('#pMarca').value = product ? (product.marca || '') : '';
+    $('#pCalidad').value = product ? (product.calidad || '') : '';
     $('#pRend').value = product ? product.rendimiento : '';
     $('#pPrecio').value = product ? (product.precio || '') : '';
     $('#pPeg').value = product ? product.pegamentoKgM2 : 4;
@@ -876,6 +1066,8 @@
     const data = {
       nombre, foto,
       medida: $('#pMedida').value.trim(),
+      marca: $('#pMarca').value.trim(),
+      calidad: $('#pCalidad').value,
       rendimiento,
       precio: $('#pPrecio').value ? parseFloat($('#pPrecio').value) : null,
       pegamentoKgM2: parseFloat($('#pPeg').value) || 0,
@@ -896,6 +1088,7 @@
       }
       closeProductForm();
       renderAdminProducts();
+      renderFilterOptions();
       renderCatalog();
       renderCalcSelect();
       renderHeroTiles();
@@ -913,6 +1106,7 @@
     if(ok){
       productos = productos.filter(p => p.id !== id);
       renderAdminProducts();
+      renderFilterOptions();
       renderCatalog();
       renderCalcSelect();
       renderHeroTiles();
@@ -1080,6 +1274,7 @@
       return;
     }
     const markupPct = parseFloat($('#excelMarkup').value) || 0;
+    const calidadLote = $('#excelCalidad').value;
     statusEl.textContent = 'Importando…';
     statusEl.className = 'status-msg show status-ok';
 
@@ -1115,6 +1310,7 @@
       if(!rendimiento) rendimiento = 1;
       const data = {
         nombre, foto: '', medida, rendimiento,
+        marca: currentBrand, calidad: calidadLote,
         precio: precioFinal,
         pegamentoKgM2: 4, pegamentoBolsaKg: 25,
         plasticolLM2: 0.5, plasticolEnvaseL: 4
@@ -1130,7 +1326,8 @@
     $('#importExcelBtn').textContent = 'Elegí un archivo primero';
     importWorkbook = null;
     renderAdminProducts();
-    renderCatalog();
+    renderFilterOptions();
+      renderCatalog();
     renderCalcSelect();
     renderHeroTiles();
   }
@@ -1174,24 +1371,59 @@
       $('#cfgWhatsapp').value = BIZ.whatsapp || '';
       $('#cfgDireccion').value = BIZ.direccion || '';
       $('#cfgMediosPago').value = BIZ.mediosPago || '';
+      $('#cfgMpLink').value = BIZ.mercadoPagoLink || '';
       $('#cfgPin').value = '';
+      $('#promoActiva').checked = !!PROMO.activa;
+      $('#promoTituloInput').value = PROMO.titulo || '';
+      $('#promoDescInput').value = PROMO.descripcion || '';
+      $('#panel-promo').dataset.existingFoto = PROMO.foto || '';
+      $('#promoFoto').value = '';
     }else{
       $('#pinError').textContent = 'PIN incorrecto.';
+    }
+  }
+
+  async function savePromoForm(){
+    const statusEl = $('#promoStatus');
+    let foto = $('#panel-promo').dataset.existingFoto || '';
+    const fileInput = $('#promoFoto');
+    if(fileInput.files && fileInput.files[0]){
+      try{
+        foto = await resizeImageToBase64(fileInput.files[0]);
+      }catch(e){
+        statusEl.textContent = 'No se pudo procesar la foto. Se guardó el resto.';
+        statusEl.className = 'status-msg show status-err';
+      }
+    }
+    const data = {
+      activa: $('#promoActiva').checked,
+      titulo: $('#promoTituloInput').value.trim(),
+      descripcion: $('#promoDescInput').value.trim(),
+      foto
+    };
+    const ok = await savePromo(data);
+    statusEl.textContent = ok ? 'Promoción guardada.' : 'No se pudo guardar. Revisá la conexión con Firebase.';
+    statusEl.className = 'status-msg show ' + (ok ? 'status-ok' : 'status-err');
+    if(ok){
+      renderPromo();
+      $('#panel-promo').dataset.existingFoto = foto;
+      $('#promoFoto').value = '';
     }
   }
 
   async function saveBizConfig(){
     const statusEl = $('#configStatus');
     const data = {
-      whatsapp: $('#cfgWhatsapp').value.trim(),
+      whatsapp: normalizeWhatsappAR($('#cfgWhatsapp').value),
       direccion: $('#cfgDireccion').value.trim(),
-      mediosPago: $('#cfgMediosPago').value
+      mediosPago: $('#cfgMediosPago').value,
+      mercadoPagoLink: $('#cfgMpLink').value.trim()
     };
     if($('#cfgPin').value.trim()){
       data.pin = $('#cfgPin').value.trim();
     }
     const ok = await saveConfig(data);
-    statusEl.textContent = ok ? 'Configuración guardada.' : 'No se pudo guardar. Revisá la conexión con Firebase.';
+    statusEl.textContent = ok ? `Configuración guardada. Tu WhatsApp va a funcionar como: ${data.whatsapp || '(sin cargar)'}` : 'No se pudo guardar. Revisá la conexión con Firebase.';
     statusEl.className = 'status-msg show ' + (ok ? 'status-ok' : 'status-err');
     if(ok){
       renderBizInfo();
@@ -1229,6 +1461,9 @@
     $('#excelFile').addEventListener('change', onExcelFileChosen);
     $('#importExcelBtn').addEventListener('click', importExcel);
     $('#saveConfigBtn').addEventListener('click', saveBizConfig);
+    $('#savePromoBtn').addEventListener('click', savePromoForm);
+    $('#filterCalidad').addEventListener('change', renderCatalog);
+    $('#filterMarca').addEventListener('change', renderCatalog);
     $('#waMainBtn').addEventListener('click', (e) => {
       e.preventDefault();
       window.open(waLink('Hola! Quería consultar por las cerámicas.'), '_blank');
@@ -1247,8 +1482,11 @@
     $('#catalogGrid').innerHTML = '<div class="empty-state">Cargando catálogo…</div>';
     await loadProductos();
     await loadConfig();
+    await loadPromo();
     renderBizInfo();
+    renderPromo();
     renderHeroTiles();
+    renderFilterOptions();
     renderCatalog();
     renderCalcSelect();
   }
