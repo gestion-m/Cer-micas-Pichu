@@ -581,6 +581,10 @@
             </select>
           </div>
           <div class="field" style="margin-bottom:0;">
+            <label for="bulkMarca">Marca (opcional)</label>
+            <select id="bulkMarca"><option value="">Todas</option></select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
             <label for="bulkPct">% de cambio (ej: 10, o -5 para bajar)</label>
             <input type="number" id="bulkPct" step="1" placeholder="10">
           </div>
@@ -934,6 +938,13 @@
     marcaSel.innerHTML = '<option value="">Todas</option>' + marcas.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
     if(calidades.includes(calidadActual)) calidadSel.value = calidadActual;
     if(marcas.includes(marcaActual)) marcaSel.value = marcaActual;
+
+    const bulkMarcaSel = $('#bulkMarca');
+    if(bulkMarcaSel){
+      const bulkActual = bulkMarcaSel.value;
+      bulkMarcaSel.innerHTML = '<option value="">Todas</option>' + marcas.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+      if(marcas.includes(bulkActual)) bulkMarcaSel.value = bulkActual;
+    }
   }
 
   function renderCatalog(){
@@ -1296,8 +1307,11 @@
       return;
     }
     const alcance = $('#bulkAlcance').value;
+    const marcaFiltro = $('#bulkMarca').value;
     const objetivo = productos.filter(p =>
-      p.precio && (alcance === 'todos' || (p.tipo || 'ceramica') === alcance)
+      p.precio &&
+      (alcance === 'todos' || (p.tipo || 'ceramica') === alcance) &&
+      (!marcaFiltro || p.marca === marcaFiltro)
     );
     if(!objetivo.length){
       statusEl.textContent = 'No hay productos con precio cargado en ese grupo.';
