@@ -201,12 +201,23 @@
 
   .promo-banner{display:none;background:var(--glaze);color:#fff;}
   .promo-banner.show{display:block;}
-  .promo-inner{display:flex;align-items:center;gap:20px;padding:20px 24px;}
-  .promo-photo{width:64px;height:64px;flex-shrink:0;background-size:cover;background-position:center;background-color:rgba(255,255,255,0.15);display:none;}
+  .promo-inner{
+    display:flex;flex-direction:column;align-items:flex-start;gap:16px;
+    padding:44px 24px;position:relative;
+  }
+  .promo-photo{
+    width:100%;display:none;order:-1;
+  }
+  .promo-photo img{width:100%;height:auto;display:block;}
   .promo-photo.show{display:block;}
-  .promo-eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.85;}
-  .promo-text h2{font-size:19px;color:#fff;margin-top:2px;}
-  .promo-text p{font-size:14px;margin:4px 0 0;opacity:0.95;}
+  .promo-eyebrow{font-size:13px;text-transform:uppercase;letter-spacing:0.08em;opacity:0.9;font-weight:500;}
+  .promo-text h2{font-size:32px;line-height:1.15;color:#fff;margin-top:6px;}
+  .promo-text p{font-size:16px;margin:10px 0 0;opacity:0.95;max-width:52ch;}
+  .promo-cta{margin-top:6px;}
+  @media(min-width:761px){
+    .promo-inner{flex-direction:row;align-items:center;padding:36px 24px;}
+    .promo-photo{width:320px;order:0;flex-shrink:0;}
+  }
 
   .filter-bar{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
   .filter-bar .field{margin-bottom:0;min-width:160px;flex:1;}
@@ -228,17 +239,6 @@
   Falta configurar Firebase para que la página guarde datos. Mirá la sección CONFIG al principio del archivo.
 </div>
 
-<div id="promoBanner" class="promo-banner">
-  <div class="wrap promo-inner">
-    <div class="promo-photo" id="promoPhoto"></div>
-    <div class="promo-text">
-      <div class="promo-eyebrow">Promoción</div>
-      <h2 id="promoTitulo"></h2>
-      <p id="promoDescripcion"></p>
-    </div>
-  </div>
-</div>
-
 <header>
   <div class="headbar">
     <div class="logo">Cerámicas <span>Pichu</span></div>
@@ -250,6 +250,18 @@
     </nav>
   </div>
 </header>
+
+<div id="promoBanner" class="promo-banner">
+  <div class="wrap promo-inner">
+    <a href="#" target="_blank" class="promo-photo" id="promoPhoto"><img id="promoPhotoImg" alt=""></a>
+    <div class="promo-text">
+      <div class="promo-eyebrow">Promoción</div>
+      <h2 id="promoTitulo"></h2>
+      <p id="promoDescripcion"></p>
+      <div class="promo-cta"><a href="#catalogo" class="btn btn-clay btn-sm">Ver catálogo</a></div>
+    </div>
+  </div>
+</div>
 
 <main class="wrap">
   <section class="hero">
@@ -274,6 +286,14 @@
       <p>Cada modelo indica la medida, cuántos m² cubre una caja y el precio si está cargado.</p>
     </div>
     <div class="filter-bar">
+      <div class="field">
+        <label for="filterTipo">Tipo</label>
+        <select id="filterTipo">
+          <option value="">Todo</option>
+          <option value="ceramica">Cerámicas</option>
+          <option value="insumo">Insumos (pegamento, pastina)</option>
+        </select>
+      </div>
       <div class="field">
         <label for="filterCalidad">Calidad</label>
         <select id="filterCalidad"><option value="">Todas</option></select>
@@ -321,6 +341,14 @@
             <label for="manPlasEnv">Envase de plasticol (L)</label>
             <input type="number" id="manPlasEnv" min="0.5" step="0.5" value="4">
           </div>
+          <div class="field">
+            <label for="manPastina">Pastina (kg por m²)</label>
+            <input type="number" id="manPastina" min="0" step="0.05" value="0.4">
+          </div>
+          <div class="field">
+            <label for="manPastinaBolsa">Bolsa de pastina (kg)</label>
+            <input type="number" id="manPastinaBolsa" min="0.5" step="0.5" value="5">
+          </div>
         </div>
         <div class="field">
           <label for="calcM2">Metros cuadrados a cubrir</label>
@@ -345,6 +373,7 @@
         <h3 style="font-size:17px;margin-bottom:12px;">Formas de pago</h3>
         <ul class="pago-list" id="pagoList"></ul>
         <a id="bizDireccion" href="#" target="_blank" style="margin-top:16px;font-size:14.5px;display:none;color:inherit;text-decoration:underline;"></a>
+        <p id="bizEnvio" style="margin-top:8px;font-size:14.5px;display:none;color:var(--glaze-dark);font-weight:500;"></p>
         <div style="margin-top:26px;display:flex;gap:10px;flex-wrap:wrap;">
           <a href="#" id="waMainBtn" target="_blank" class="btn btn-glaze">Escribinos por WhatsApp</a>
           <a href="#" id="mpMainBtn" target="_blank" class="btn btn-clay" style="display:none;">Pagar con Mercado Pago</a>
@@ -423,6 +452,13 @@
             <input type="number" id="excelMarkup" value="0" step="1">
           </div>
           <div class="field" style="margin-bottom:0;">
+            <label for="excelTipoLote">Este lote es</label>
+            <select id="excelTipoLote">
+              <option value="ceramica">Cerámicas</option>
+              <option value="insumo">Insumos (pegamento, pastina, etc.)</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
             <label for="excelCalidad">Calidad de este lote (opcional)</label>
             <select id="excelCalidad">
               <option value="">Sin especificar</option>
@@ -442,21 +478,35 @@
         <input type="hidden" id="pId">
         <div class="form-grid">
           <div class="field full">
+            <label for="pTipo">Tipo de producto</label>
+            <select id="pTipo">
+              <option value="ceramica">Cerámica</option>
+              <option value="insumo">Insumo (pegamento, pastina, otro)</option>
+            </select>
+          </div>
+          <div class="field full">
             <label for="pFoto">Foto</label>
             <input type="file" id="pFoto" accept="image/*">
             <div class="hint">Se guarda automáticamente comprimida para no ocupar mucho espacio.</div>
           </div>
           <div class="field">
-            <label for="pNombre">Nombre del modelo</label>
+            <label for="pNombre" id="pNombreLabel">Nombre del modelo</label>
             <input type="text" id="pNombre" placeholder="ej: Porcelanato Roca Gris">
           </div>
           <div class="field">
-            <label for="pMedida">Medida</label>
-            <input type="text" id="pMedida" placeholder="ej: 60x60 cm">
+            <label for="pMarca">Marca (opcional)</label>
+            <input type="text" id="pMarca" placeholder="ej: Cortines / Weber">
           </div>
           <div class="field">
-            <label for="pMarca">Marca (opcional)</label>
-            <input type="text" id="pMarca" placeholder="ej: Cortines">
+            <label for="pPrecio" id="pPrecioLabel">Precio por m² (opcional)</label>
+            <input type="number" id="pPrecio" min="0" step="1" placeholder="opcional">
+          </div>
+        </div>
+
+        <div class="form-grid" id="camposCeramica">
+          <div class="field">
+            <label for="pMedida">Medida</label>
+            <input type="text" id="pMedida" placeholder="ej: 60x60 cm">
           </div>
           <div class="field">
             <label for="pCalidad">Calidad (opcional)</label>
@@ -470,10 +520,6 @@
           <div class="field">
             <label for="pRend">m² que cubre 1 caja</label>
             <input type="number" id="pRend" min="0.01" step="0.01" placeholder="ej: 1.44">
-          </div>
-          <div class="field">
-            <label for="pPrecio">Precio por m² (opcional)</label>
-            <input type="number" id="pPrecio" min="0" step="1" placeholder="opcional">
           </div>
           <div class="field">
             <label for="pPeg">Pegamento (kg por m²)</label>
@@ -491,11 +537,55 @@
             <label for="pPlasEnv">Envase de plasticol (L)</label>
             <input type="number" id="pPlasEnv" min="0.5" step="0.5" value="4">
           </div>
+          <div class="field">
+            <label for="pPastina">Pastina (kg por m²)</label>
+            <input type="number" id="pPastina" min="0" step="0.05" value="0.4">
+          </div>
+          <div class="field">
+            <label for="pPastinaBolsa">Bolsa de pastina (kg)</label>
+            <input type="number" id="pPastinaBolsa" min="0.5" step="0.5" value="5">
+          </div>
         </div>
+
+        <div class="form-grid" id="camposInsumo" style="display:none;">
+          <div class="field">
+            <label for="pCategoriaInsumo">Categoría</label>
+            <select id="pCategoriaInsumo">
+              <option value="Pegamento">Pegamento</option>
+              <option value="Pastina">Pastina</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="pPresentacion">Presentación</label>
+            <input type="text" id="pPresentacion" placeholder="ej: Bolsa 25kg">
+          </div>
+        </div>
+
         <div style="display:flex;gap:10px;margin-top:16px;">
           <button class="btn btn-clay btn-sm" id="saveProduct">Guardar</button>
           <button class="btn btn-ghost btn-sm" id="cancelProduct">Cancelar</button>
         </div>
+      </div>
+
+      <div class="admin-form show" style="margin-bottom:20px;">
+        <h3 style="font-size:16px;">Actualizar precios existentes</h3>
+        <p class="hint">Aplica un aumento (o descuento, con número negativo) sobre el precio que ya tiene cargado cada producto. No hace falta volver a importar el Excel.</p>
+        <div class="import-row">
+          <div class="field" style="margin-bottom:0;">
+            <label for="bulkAlcance">Aplicar a</label>
+            <select id="bulkAlcance">
+              <option value="todos">Todos los productos</option>
+              <option value="ceramica">Solo cerámicas</option>
+              <option value="insumo">Solo insumos</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="bulkPct">% de cambio (ej: 10, o -5 para bajar)</label>
+            <input type="number" id="bulkPct" step="1" placeholder="10">
+          </div>
+        </div>
+        <button class="btn btn-glaze btn-sm" id="bulkUpdateBtn" style="margin-top:10px;">Aplicar</button>
       </div>
 
       <div id="productList"></div>
@@ -544,6 +634,10 @@
           <div class="field">
             <label for="cfgDireccion">Dirección (opcional)</label>
             <input type="text" id="cfgDireccion" placeholder="ej: Grand Bourg, Bs. As.">
+          </div>
+          <div class="field">
+            <label for="cfgEnvioZona">Zona con envío gratis (opcional)</label>
+            <input type="text" id="cfgEnvioZona" placeholder="ej: José C. Paz">
           </div>
           <div class="field full">
             <label for="cfgMediosPago">Medios de pago (uno por línea)</label>
@@ -604,6 +698,7 @@
   let BIZ = {
     whatsapp: CONFIG.whatsapp,
     direccion: '',
+    envioGratisZona: '',
     mediosPago: 'Transferencia bancaria\nCuotas',
     pin: CONFIG.adminPin,
     mercadoPagoLink: ''
@@ -654,7 +749,8 @@
       $('#promoDescripcion').textContent = PROMO.descripcion || '';
       const photo = $('#promoPhoto');
       if(PROMO.foto){
-        photo.style.backgroundImage = `url(${PROMO.foto})`;
+        $('#promoPhotoImg').src = PROMO.foto;
+        photo.href = PROMO.foto;
         photo.classList.add('show');
       }else{
         photo.classList.remove('show');
@@ -700,6 +796,13 @@
       dir.style.display = 'block';
     }else{
       dir.style.display = 'none';
+    }
+    const envio = $('#bizEnvio');
+    if(BIZ.envioGratisZona){
+      envio.textContent = '🚚 Envío gratis en ' + BIZ.envioGratisZona;
+      envio.style.display = 'block';
+    }else{
+      envio.style.display = 'none';
     }
     const mpBtn = $('#mpMainBtn');
     if(BIZ.mercadoPagoLink){
@@ -839,9 +942,11 @@
       grid.innerHTML = '<div class="empty-state">Todavía no hay productos cargados. Se van a ver acá apenas se agreguen desde el panel de administración.</div>';
       return;
     }
+    const tipoF = $('#filterTipo').value;
     const calidadF = $('#filterCalidad').value;
     const marcaF = $('#filterMarca').value;
     const filtrados = productos.filter(p =>
+      (!tipoF || (p.tipo || 'ceramica') === tipoF) &&
       (!calidadF || p.calidad === calidadF) &&
       (!marcaF || p.marca === marcaF)
     );
@@ -850,7 +955,23 @@
       return;
     }
     grid.className = 'catalog-grid';
-    grid.innerHTML = filtrados.map(p => `
+    grid.innerHTML = filtrados.map(p => {
+      if(p.tipo === 'insumo'){
+        return `
+      <div class="card">
+        <div class="photo ${p.foto ? '' : 'empty'}" ${p.foto ? `style="background-image:url(${p.foto})"` : ''}></div>
+        <div class="body">
+          <div class="nombre">${escapeHtml(p.nombre || 'Producto sin nombre')}</div>
+          <div class="meta">${escapeHtml(p.categoriaInsumo || '')}${p.marca ? ' · ' + escapeHtml(p.marca) : ''}${p.presentacion ? ' · ' + escapeHtml(p.presentacion) : ''}</div>
+          ${p.precio ? `<div class="precio">${money(p.precio)}</div>` : ''}
+          <div class="actions">
+            <a class="btn btn-glaze btn-sm" href="${waLink('Hola! Me interesa ' + (p.nombre||'') + '.')}" target="_blank">WhatsApp</a>
+          </div>
+        </div>
+      </div>
+    `;
+      }
+      return `
       <div class="card">
         <div class="photo ${p.foto ? '' : 'empty'}" ${p.foto ? `style="background-image:url(${p.foto})"` : ''}></div>
         <div class="body">
@@ -864,7 +985,8 @@
           </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   function escapeHtml(str){
@@ -879,9 +1001,10 @@
 
   // ---------- Calculator ----------
   function renderCalcSelect(){
+    const ceramicas = productos.filter(p => (p.tipo || 'ceramica') === 'ceramica');
     const sel = $('#calcProducto');
     sel.innerHTML = '<option value="">Elegí un modelo</option>' +
-      productos.map(p => `<option value="${p.id}">${escapeHtml(p.nombre)} (${escapeHtml(p.medida||'')})</option>`).join('');
+      ceramicas.map(p => `<option value="${p.id}">${escapeHtml(p.nombre)} (${escapeHtml(p.medida||'')})</option>`).join('');
 
     const selForm = $('#fProducto');
     selForm.innerHTML = '<option value="">No estoy seguro</option>' +
@@ -903,8 +1026,10 @@
       const pegBolsa = parseFloat($('#manPegBolsa').value) || 1;
       const plasLM2 = parseFloat($('#manPlas').value) || 0;
       const plasEnv = parseFloat($('#manPlasEnv').value) || 1;
+      const pastinaKgM2 = parseFloat($('#manPastina').value) || 0;
+      const pastinaBolsa = parseFloat($('#manPastinaBolsa').value) || 1;
       if(!rendimiento || rendimiento <= 0) return null;
-      return {rendimiento, pegKgM2, pegBolsa, plasLM2, plasEnv, precio:null};
+      return {rendimiento, pegKgM2, pegBolsa, plasLM2, plasEnv, pastinaKgM2, pastinaBolsa, precio:null};
     }else{
       const id = $('#calcProducto').value;
       const p = productos.find(x => x.id === id);
@@ -915,6 +1040,8 @@
         pegBolsa: parseFloat(p.pegamentoBolsaKg) || 1,
         plasLM2: parseFloat(p.plasticolLM2) || 0,
         plasEnv: parseFloat(p.plasticolEnvaseL) || 1,
+        pastinaKgM2: parseFloat(p.pastinaKgM2) || 0,
+        pastinaBolsa: parseFloat(p.pastinaBolsaKg) || 1,
         precio: p.precio || null
       };
     }
@@ -938,6 +1065,8 @@
     const bolsas = params.pegKgM2 > 0 ? Math.ceil(pegTotalKg / params.pegBolsa) : 0;
     const plasTotalL = m2 * params.plasLM2;
     const envases = params.plasLM2 > 0 ? Math.ceil(plasTotalL / params.plasEnv) : 0;
+    const pastinaTotalKg = m2 * params.pastinaKgM2;
+    const pastinaBolsas = params.pastinaKgM2 > 0 ? Math.ceil(pastinaTotalKg / params.pastinaBolsa) : 0;
 
     let totalRow = '';
     if(params.precio){
@@ -960,6 +1089,11 @@
         <div class="result-num">${bolsas || '—'}</div>
         <div class="result-label">bolsas de pegamento de ${params.pegBolsa} kg</div>
         <div class="result-sub">${pegTotalKg > 0 ? '≈ ' + pegTotalKg.toFixed(1) + ' kg en total' : ''}</div>
+      </div>
+      <div class="result-row">
+        <div class="result-num">${pastinaBolsas || '—'}</div>
+        <div class="result-label">bolsas de pastina de ${params.pastinaBolsa} kg</div>
+        <div class="result-sub">${pastinaTotalKg > 0 ? '≈ ' + pastinaTotalKg.toFixed(1) + ' kg en total' : ''}</div>
       </div>
       <div class="result-row">
         <div class="result-num">${envases || '—'}</div>
@@ -1007,25 +1141,38 @@
       list.innerHTML = '<p class="hint">No hay productos cargados todavía.</p>';
       return;
     }
-    list.innerHTML = productos.map(p => `
+    list.innerHTML = productos.map(p => {
+      const detalle = p.tipo === 'insumo'
+        ? `${escapeHtml(p.categoriaInsumo||'Insumo')}${p.presentacion ? ' · ' + escapeHtml(p.presentacion) : ''}${p.precio ? ' · ' + money(p.precio) : ''}`
+        : `${escapeHtml(p.medida||'')} · 1 caja = ${p.rendimiento} m²${p.precio ? ' · ' + money(p.precio) + '/m²' : ''}`;
+      return `
       <div class="admin-row">
         ${p.foto ? `<img src="${p.foto}">` : '<div class="noimg"></div>'}
         <div class="info">
           <div class="n">${escapeHtml(p.nombre)}</div>
-          <div class="m">${escapeHtml(p.medida||'')} · 1 caja = ${p.rendimiento} m²${p.precio ? ' · ' + money(p.precio) + '/m²' : ''}</div>
+          <div class="m">${detalle}</div>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="__ceram.editProduct('${p.id}')">Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="__ceram.deleteProduct('${p.id}')">Eliminar</button>
       </div>
-    `).join('');
+    `;}).join('');
+  }
+
+  function toggleTipoFields(){
+    const esInsumo = $('#pTipo').value === 'insumo';
+    $('#camposCeramica').style.display = esInsumo ? 'none' : 'grid';
+    $('#camposInsumo').style.display = esInsumo ? 'grid' : 'none';
+    $('#pNombreLabel').textContent = esInsumo ? 'Nombre del producto' : 'Nombre del modelo';
+    $('#pPrecioLabel').textContent = esInsumo ? 'Precio (opcional)' : 'Precio por m² (opcional)';
   }
 
   function openProductForm(product){
     $('#productForm').classList.add('show');
     $('#formTitle').textContent = product ? 'Editar producto' : 'Nuevo producto';
     $('#pId').value = product ? product.id : '';
+    $('#pTipo').value = product ? (product.tipo || 'ceramica') : 'ceramica';
     $('#pNombre').value = product ? product.nombre : '';
-    $('#pMedida').value = product ? product.medida : '';
+    $('#pMedida').value = product ? (product.medida || '') : '';
     $('#pMarca').value = product ? (product.marca || '') : '';
     $('#pCalidad').value = product ? (product.calidad || '') : '';
     $('#pRend').value = product ? product.rendimiento : '';
@@ -1034,8 +1181,13 @@
     $('#pPegBolsa').value = product ? product.pegamentoBolsaKg : 25;
     $('#pPlas').value = product ? product.plasticolLM2 : 0.5;
     $('#pPlasEnv').value = product ? product.plasticolEnvaseL : 4;
+    $('#pPastina').value = product ? (product.pastinaKgM2 != null ? product.pastinaKgM2 : 0.4) : 0.4;
+    $('#pPastinaBolsa').value = product ? (product.pastinaBolsaKg != null ? product.pastinaBolsaKg : 5) : 5;
+    $('#pCategoriaInsumo').value = product ? (product.categoriaInsumo || 'Pegamento') : 'Pegamento';
+    $('#pPresentacion').value = product ? (product.presentacion || '') : '';
     $('#pFoto').value = '';
     $('#productForm').dataset.existingFoto = product ? (product.foto || '') : '';
+    toggleTipoFields();
     $('#pNombre').focus();
   }
 
@@ -1045,12 +1197,21 @@
 
   async function saveProduct(){
     const nombre = $('#pNombre').value.trim();
-    const rendimiento = parseFloat($('#pRend').value);
+    const tipo = $('#pTipo').value;
     const statusEl = $('#prodStatus');
-    if(!nombre || !rendimiento || rendimiento <= 0){
-      statusEl.textContent = 'Completá al menos el nombre y los m² por caja.';
+    if(!nombre){
+      statusEl.textContent = 'Completá al menos el nombre.';
       statusEl.className = 'status-msg show status-err';
       return;
+    }
+    let rendimiento = null;
+    if(tipo === 'ceramica'){
+      rendimiento = parseFloat($('#pRend').value);
+      if(!rendimiento || rendimiento <= 0){
+        statusEl.textContent = 'Para una cerámica, completá los m² por caja.';
+        statusEl.className = 'status-msg show status-err';
+        return;
+      }
     }
     const existingId = $('#pId').value || null;
     let foto = $('#productForm').dataset.existingFoto || '';
@@ -1063,18 +1224,31 @@
         statusEl.className = 'status-msg show status-err';
       }
     }
-    const data = {
-      nombre, foto,
-      medida: $('#pMedida').value.trim(),
-      marca: $('#pMarca').value.trim(),
-      calidad: $('#pCalidad').value,
-      rendimiento,
-      precio: $('#pPrecio').value ? parseFloat($('#pPrecio').value) : null,
-      pegamentoKgM2: parseFloat($('#pPeg').value) || 0,
-      pegamentoBolsaKg: parseFloat($('#pPegBolsa').value) || 25,
-      plasticolLM2: parseFloat($('#pPlas').value) || 0,
-      plasticolEnvaseL: parseFloat($('#pPlasEnv').value) || 4
-    };
+    let data;
+    if(tipo === 'insumo'){
+      data = {
+        tipo, nombre, foto,
+        marca: $('#pMarca').value.trim(),
+        categoriaInsumo: $('#pCategoriaInsumo').value,
+        presentacion: $('#pPresentacion').value.trim(),
+        precio: $('#pPrecio').value ? parseFloat($('#pPrecio').value) : null
+      };
+    }else{
+      data = {
+        tipo, nombre, foto,
+        medida: $('#pMedida').value.trim(),
+        marca: $('#pMarca').value.trim(),
+        calidad: $('#pCalidad').value,
+        rendimiento,
+        precio: $('#pPrecio').value ? parseFloat($('#pPrecio').value) : null,
+        pegamentoKgM2: parseFloat($('#pPeg').value) || 0,
+        pegamentoBolsaKg: parseFloat($('#pPegBolsa').value) || 25,
+        plasticolLM2: parseFloat($('#pPlas').value) || 0,
+        plasticolEnvaseL: parseFloat($('#pPlasEnv').value) || 4,
+        pastinaKgM2: parseFloat($('#pPastina').value) || 0,
+        pastinaBolsaKg: parseFloat($('#pPastinaBolsa').value) || 5
+      };
+    }
     const savedId = await saveOneProducto(data, existingId);
     const ok = !!savedId;
     statusEl.textContent = ok ? 'Producto guardado.' : 'No se pudo guardar. Revisá que Firebase esté bien configurado.';
@@ -1111,6 +1285,39 @@
       renderCalcSelect();
       renderHeroTiles();
     }
+  }
+
+  async function bulkUpdatePrecios(){
+    const statusEl = $('#prodStatus');
+    const pct = parseFloat($('#bulkPct').value);
+    if(!pct){
+      statusEl.textContent = 'Ingresá un porcentaje distinto de 0.';
+      statusEl.className = 'status-msg show status-err';
+      return;
+    }
+    const alcance = $('#bulkAlcance').value;
+    const objetivo = productos.filter(p =>
+      p.precio && (alcance === 'todos' || (p.tipo || 'ceramica') === alcance)
+    );
+    if(!objetivo.length){
+      statusEl.textContent = 'No hay productos con precio cargado en ese grupo.';
+      statusEl.className = 'status-msg show status-err';
+      return;
+    }
+    if(!confirm(`Se va a actualizar el precio de ${objetivo.length} producto(s) un ${pct > 0 ? '+' : ''}${pct}%. ¿Confirmás?`)) return;
+    statusEl.textContent = 'Actualizando precios…';
+    statusEl.className = 'status-msg show status-ok';
+    let actualizados = 0;
+    for(const p of objetivo){
+      const nuevoPrecio = Math.round(p.precio * (1 + pct/100));
+      const ok = await saveOneProducto({precio: nuevoPrecio}, p.id);
+      if(ok){ p.precio = nuevoPrecio; actualizados++; }
+    }
+    statusEl.textContent = `Se actualizó el precio de ${actualizados} producto(s).`;
+    statusEl.className = 'status-msg show status-ok';
+    $('#bulkPct').value = '';
+    renderAdminProducts();
+    renderCatalog();
   }
 
   // ---------- Bulk import from Excel/CSV ----------
@@ -1150,17 +1357,27 @@
     return -1;
   }
 
-  // Busca, dentro de las primeras filas de la hoja, la fila que funciona como encabezado
-  // (la que tiene una columna de nombre/descripción y una de precio).
+  // Busca, dentro de las primeras filas de la hoja, la fila que funciona como encabezado.
+  // Primero intenta con los nombres de columna conocidos; si no los encuentra, usa como
+  // columna de "nombre" cualquier columna con texto que no sea, a su vez, de precio.
   function findHeaderRow(rows){
     const limit = Math.min(rows.length, 15);
     for(let r=0;r<limit;r++){
-      const nameCol = findCol(rows[r], NAME_HEADERS);
-      const priceCol = findCol(rows[r], PRICE_HEADERS);
-      if(nameCol !== -1 && priceCol !== -1){
+      const row = rows[r];
+      const priceCol = findCol(row, PRICE_HEADERS);
+      if(priceCol === -1) continue;
+      let nameCol = findCol(row, NAME_HEADERS);
+      if(nameCol === -1){
+        for(let i=0;i<row.length;i++){
+          if(i === priceCol) continue;
+          const h = normHeader(row[i]);
+          if(h) { nameCol = i; break; }
+        }
+      }
+      if(nameCol !== -1){
         return {rowIndex:r, nameCol, priceCol,
-          medidaCol: findCol(rows[r], MEDIDA_HEADERS),
-          rendCol: findCol(rows[r], REND_HEADERS)};
+          medidaCol: findCol(row, MEDIDA_HEADERS),
+          rendCol: findCol(row, REND_HEADERS)};
       }
     }
     return null;
@@ -1275,15 +1492,33 @@
     }
     const markupPct = parseFloat($('#excelMarkup').value) || 0;
     const calidadLote = $('#excelCalidad').value;
+    const tipoLote = $('#excelTipoLote').value;
     statusEl.textContent = 'Importando…';
     statusEl.className = 'status-msg show status-ok';
 
-    // Detecta la marca/sección vigente en cada fila (líneas como "CERAMICA CORTINES" que
-    // aparecen antes de un grupo de productos, sin precio).
+    // Detecta la marca/sección vigente en cada fila (líneas como "CERAMICA CORTINES" o
+    // "PASTINAS" que aparecen antes de un grupo de productos, sin precio).
     let currentBrand = '';
     for(let r=0; r<header.rowIndex; r++){
       const v = String((rows[r] && rows[r][header.nameCol]) || '').trim();
       if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = v;
+    }
+    // Si el propio encabezado de la hoja ya es descriptivo (ej: "ADHESIVO" en vez de
+    // "Descripción"), lo usamos como categoría/marca inicial.
+    if(!currentBrand){
+      const headerLabel = String(rows[header.rowIndex][header.nameCol] || '').trim();
+      if(headerLabel && !NAME_HEADERS.includes(normHeader(headerLabel))) currentBrand = headerLabel;
+    }
+
+    function guessCategoriaInsumo(texto){
+      const n = stripAccents(texto).toLowerCase();
+      if(n.includes('pastina')) return 'Pastina';
+      if(n.includes('adhesiv') || n.includes('pegament')) return 'Pegamento';
+      return 'Otro';
+    }
+    function guessPresentacion(nombre){
+      const m = String(nombre).match(/x\s*(\d+([.,]\d+)?)\s*(kg|l|lts?)/i);
+      return m ? `${m[1].replace(',','.')} ${m[3].toLowerCase()==='l'||m[3].toLowerCase().startsWith('lt') ? 'L' : 'kg'}` : '';
     }
 
     let cargados = 0, saltados = 0, autoRend = 0;
@@ -1301,20 +1536,35 @@
       const nombre = String(nombreRaw || '').trim();
       if(!nombre){ saltados++; continue; }
       const precioFinal = markupPct ? Math.round(precioBase * (1 + markupPct/100)) : precioBase;
-      const medida = header.medidaCol !== -1 ? String(row[header.medidaCol] || '').trim() : guessMedida(nombre);
-      let rendimiento = header.rendCol !== -1 ? parseFloat(row[header.rendCol]) : null;
-      if(!rendimiento){
-        const auto = findRendimientoPorMarca(embalajeIndex, currentBrand, medida);
-        if(auto){ rendimiento = auto; autoRend++; }
+
+      let data;
+      if(tipoLote === 'insumo'){
+        data = {
+          tipo: 'insumo',
+          nombre, foto: '',
+          marca: currentBrand,
+          categoriaInsumo: guessCategoriaInsumo(currentBrand + ' ' + nombre),
+          presentacion: guessPresentacion(nombre),
+          precio: precioFinal
+        };
+      }else{
+        const medida = header.medidaCol !== -1 ? String(row[header.medidaCol] || '').trim() : guessMedida(nombre);
+        let rendimiento = header.rendCol !== -1 ? parseFloat(row[header.rendCol]) : null;
+        if(!rendimiento){
+          const auto = findRendimientoPorMarca(embalajeIndex, currentBrand, medida);
+          if(auto){ rendimiento = auto; autoRend++; }
+        }
+        if(!rendimiento) rendimiento = 1;
+        data = {
+          tipo: 'ceramica',
+          nombre, foto: '', medida, rendimiento,
+          marca: currentBrand, calidad: calidadLote,
+          precio: precioFinal,
+          pegamentoKgM2: 4, pegamentoBolsaKg: 25,
+          plasticolLM2: 0.5, plasticolEnvaseL: 4,
+          pastinaKgM2: 0.4, pastinaBolsaKg: 5
+        };
       }
-      if(!rendimiento) rendimiento = 1;
-      const data = {
-        nombre, foto: '', medida, rendimiento,
-        marca: currentBrand, calidad: calidadLote,
-        precio: precioFinal,
-        pegamentoKgM2: 4, pegamentoBolsaKg: 25,
-        plasticolLM2: 0.5, plasticolEnvaseL: 4
-      };
       const id = await saveOneProducto(data, null);
       if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
     }
@@ -1370,6 +1620,7 @@
       renderPedidos();
       $('#cfgWhatsapp').value = BIZ.whatsapp || '';
       $('#cfgDireccion').value = BIZ.direccion || '';
+      $('#cfgEnvioZona').value = BIZ.envioGratisZona || '';
       $('#cfgMediosPago').value = BIZ.mediosPago || '';
       $('#cfgMpLink').value = BIZ.mercadoPagoLink || '';
       $('#cfgPin').value = '';
@@ -1416,6 +1667,7 @@
     const data = {
       whatsapp: normalizeWhatsappAR($('#cfgWhatsapp').value),
       direccion: $('#cfgDireccion').value.trim(),
+      envioGratisZona: $('#cfgEnvioZona').value.trim(),
       mediosPago: $('#cfgMediosPago').value,
       mercadoPagoLink: $('#cfgMpLink').value.trim()
     };
@@ -1447,7 +1699,9 @@
     $all('.admin-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
     $('#newProductBtn').addEventListener('click', () => openProductForm(null));
+    $('#bulkUpdateBtn').addEventListener('click', bulkUpdatePrecios);
     $('#cancelProduct').addEventListener('click', closeProductForm);
+    $('#pTipo').addEventListener('change', toggleTipoFields);
     $('#saveProduct').addEventListener('click', saveProduct);
 
     $('#manualToggle').addEventListener('click', () => {
@@ -1464,6 +1718,7 @@
     $('#savePromoBtn').addEventListener('click', savePromoForm);
     $('#filterCalidad').addEventListener('change', renderCatalog);
     $('#filterMarca').addEventListener('change', renderCatalog);
+    $('#filterTipo').addEventListener('change', renderCatalog);
     $('#waMainBtn').addEventListener('click', (e) => {
       e.preventDefault();
       window.open(waLink('Hola! Quería consultar por las cerámicas.'), '_blank');
