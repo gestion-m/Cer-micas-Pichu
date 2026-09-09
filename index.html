@@ -105,8 +105,9 @@
   .card{background:var(--paper);display:flex;flex-direction:column;}
   .card .photo{
     aspect-ratio:1/1;background-size:cover;background-position:center;
-    background-color:var(--grout);position:relative;
+    background-color:var(--grout);position:relative;display:block;
   }
+  a.card-link.photo,.card a.photo{cursor:pointer;}
   .card .photo.empty::after{
     content:"Sin foto";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     color:var(--ink-soft);font-size:13px;
@@ -970,7 +971,7 @@
       if(p.tipo === 'insumo'){
         return `
       <div class="card">
-        <div class="photo ${p.foto ? '' : 'empty'}" ${p.foto ? `style="background-image:url(${p.foto})"` : ''}></div>
+        ${p.foto ? `<a class="photo" href="${p.foto}" target="_blank" style="background-image:url(${p.foto})"></a>` : `<div class="photo empty"></div>`}
         <div class="body">
           <div class="nombre">${escapeHtml(p.nombre || 'Producto sin nombre')}</div>
           <div class="meta">${escapeHtml(p.categoriaInsumo || '')}${p.marca ? ' · ' + escapeHtml(p.marca) : ''}${p.presentacion ? ' · ' + escapeHtml(p.presentacion) : ''}</div>
@@ -984,7 +985,7 @@
       }
       return `
       <div class="card">
-        <div class="photo ${p.foto ? '' : 'empty'}" ${p.foto ? `style="background-image:url(${p.foto})"` : ''}></div>
+        ${p.foto ? `<a class="photo" href="${p.foto}" target="_blank" style="background-image:url(${p.foto})"></a>` : `<div class="photo empty"></div>`}
         <div class="body">
           <div class="nombre">${escapeHtml(p.nombre || 'Modelo sin nombre')}</div>
           <div class="meta">${escapeHtml(p.medida || '')}${p.marca ? ' · ' + escapeHtml(p.marca) : ''}${p.calidad ? ' · ' + escapeHtml(p.calidad) : ''}</div>
