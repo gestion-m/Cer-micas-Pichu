@@ -979,13 +979,14 @@
     const marcaF = $('#filterMarca').value;
     const nombreF = stripAccents($('#filterNombre').value).toLowerCase().trim();
     const filtrados = productos.filter(p =>
+      p.foto &&
       (!tipoF || (p.tipo || 'ceramica') === tipoF) &&
       (!calidadF || p.calidad === calidadF) &&
       (!marcaF || p.marca === marcaF) &&
       (!nombreF || stripAccents(p.nombre || '').toLowerCase().includes(nombreF))
     );
     if(!filtrados.length){
-      grid.innerHTML = '<div class="empty-state">No hay productos que coincidan con ese filtro.</div>';
+      grid.innerHTML = '<div class="empty-state">Todavía no hay productos con foto cargada para mostrar.</div>';
       return;
     }
     grid.className = 'catalog-grid';
@@ -1035,14 +1036,14 @@
 
   // ---------- Calculator ----------
   function renderCalcSelect(){
-    const ceramicas = productos.filter(p => (p.tipo || 'ceramica') === 'ceramica');
+    const ceramicas = productos.filter(p => (p.tipo || 'ceramica') === 'ceramica' && p.foto);
     const sel = $('#calcProducto');
     sel.innerHTML = '<option value="">Elegí un modelo</option>' +
       ceramicas.map(p => `<option value="${p.id}">${escapeHtml(p.nombre)} (${escapeHtml(p.medida||'')})</option>`).join('');
 
     const selForm = $('#fProducto');
     selForm.innerHTML = '<option value="">No estoy seguro</option>' +
-      productos.map(p => `<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
+      productos.filter(p => p.foto).map(p => `<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
   }
 
   function calcularCon(id){
@@ -1563,11 +1564,15 @@
       const m = String(nombre).match(/x\s*(\d+([.,]\d+)?)\s*(kg|l|lts?)/i);
       return m ? `${m[1].replace(',','.')} ${m[3].toLowerCase()==='l'||m[3].toLowerCase().startsWith('lt') ? 'L' : 'kg'}` : '';
     }
+    function filaSinStock(row){
+      return row.some(v => stripAccents(String(v||'')).toLowerCase().includes('sin stock'));
+    }
 
-    let cargados = 0, saltados = 0, autoRend = 0;
+    let cargados = 0, actualizados = 0, saltados = 0, sinStock = 0, autoRend = 0;
     for(let r = header.rowIndex + 1; r < rows.length; r++){
       const row = rows[r];
       if(!row) { saltados++; continue; }
+      if(filaSinStock(row)){ sinStock++; continue; }
       const nombreRaw = row[header.nameCol];
       const precioBase = parsePrecio(row[header.priceCol]);
       if(precioBase === null){
@@ -1608,10 +1613,23 @@
           pastinaKgM2: 0.4, pastinaBolsaKg: 5
         };
       }
-      const id = await saveOneProducto(data, null);
-      if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
+
+      // Si ya existe un producto con el mismo nombre y tipo, lo actualiza en vez de duplicarlo
+      // (y conserva la foto que ya tenía cargada).
+      const existente = productos.find(p =>
+        (p.tipo || 'ceramica') === (data.tipo || 'ceramica') &&
+        stripAccents(p.nombre || '').toLowerCase().trim() === stripAccents(nombre).toLowerCase().trim()
+      );
+      if(existente){
+        delete data.foto;
+        const id = await saveOneProducto(data, existente.id);
+        if(id){ Object.assign(existente, data); actualizados++; } else { saltados++; }
+      }else{
+        const id = await saveOneProducto(data, null);
+        if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
+      }
     }
-    statusEl.textContent = `Se cargaron ${cargados} productos desde "${sheetName}"${autoRend ? ' (' + autoRend + ' con el rendimiento por caja calculado automáticamente)' : ''}.${saltados ? ' ' + saltados + ' filas se saltearon.' : ''} Ahora podés agregarles foto editando cada uno.`;
+    statusEl.textContent = `Se cargaron ${cargados} productos nuevos${actualizados ? ' y se actualizaron ' + actualizados + ' que ya tenías cargados' : ''} desde "${sheetName}"${autoRend ? ' (' + autoRend + ' con el rendimiento por caja calculado automáticamente)' : ''}.${sinStock ? ' ' + sinStock + ' filas no se cargaron por decir "sin stock".' : ''}${saltados ? ' ' + saltados + ' filas se saltearon.' : ''} Ahora podés agregarles foto a los nuevos editando cada uno.`;
     statusEl.className = 'status-msg show status-ok';
     $('#excelFile').value = '';
     $('#excelSheetRow').style.display = 'none';
