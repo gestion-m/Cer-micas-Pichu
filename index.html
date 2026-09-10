@@ -207,7 +207,7 @@
     padding:44px 24px;position:relative;
   }
   .promo-photo{
-    width:100%;display:none;order:-1;
+    width:100%;display:none;order:-1;cursor:zoom-in;
   }
   .promo-photo img{width:100%;height:auto;display:block;}
   .promo-photo.show{display:block;}
@@ -222,6 +222,14 @@
 
   .filter-bar{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
   .filter-bar .field{margin-bottom:0;min-width:160px;flex:1;}
+
+  .lightbox{
+    display:none;position:fixed;inset:0;background:rgba(20,18,15,0.92);z-index:300;
+    align-items:center;justify-content:center;padding:20px;cursor:zoom-out;
+  }
+  .lightbox.show{display:flex;}
+  .lightbox img{max-width:94vw;max-height:92vh;object-fit:contain;}
+  .photo{cursor:zoom-in;}
 
   @media(max-width:760px){
     .hero-grid{grid-template-columns:1fr;}
@@ -254,7 +262,7 @@
 
 <div id="promoBanner" class="promo-banner">
   <div class="wrap promo-inner">
-    <a href="#" target="_blank" class="promo-photo" id="promoPhoto"><img id="promoPhotoImg" alt=""></a>
+    <div class="promo-photo" id="promoPhoto"><img id="promoPhotoImg" alt=""></div>
     <div class="promo-text">
       <div class="promo-eyebrow">Promoción</div>
       <h2 id="promoTitulo"></h2>
@@ -287,6 +295,10 @@
       <p>Cada modelo indica la medida, cuántos m² cubre una caja y el precio si está cargado.</p>
     </div>
     <div class="filter-bar">
+      <div class="field">
+        <label for="filterNombre">Buscar por nombre</label>
+        <input type="text" id="filterNombre" placeholder="ej: Cortines, Aspen...">
+      </div>
       <div class="field">
         <label for="filterTipo">Tipo</label>
         <select id="filterTipo">
@@ -407,6 +419,10 @@
 <footer>
   <div class="wrap">Cerámicas Pichu</div>
 </footer>
+
+<div id="imgLightbox" class="lightbox">
+  <img id="lightboxImg" alt="">
+</div>
 
 <!-- ADMIN OVERLAY -->
 <div id="admin-overlay">
@@ -593,6 +609,10 @@
         <button class="btn btn-glaze btn-sm" id="bulkUpdateBtn" style="margin-top:10px;">Aplicar</button>
       </div>
 
+      <div class="field" style="max-width:360px;">
+        <label for="adminBuscarNombre">Buscar por nombre</label>
+        <input type="text" id="adminBuscarNombre" placeholder="ej: Cortines, Aspen...">
+      </div>
       <div id="productList"></div>
     </div>
 
@@ -703,7 +723,7 @@
   let BIZ = {
     whatsapp: CONFIG.whatsapp,
     direccion: '',
-    envioGratisZona: '',
+    envioGratisZona: 'José C. Paz',
     mediosPago: 'Transferencia bancaria\nCuotas',
     pin: CONFIG.adminPin,
     mercadoPagoLink: ''
@@ -755,7 +775,7 @@
       const photo = $('#promoPhoto');
       if(PROMO.foto){
         $('#promoPhotoImg').src = PROMO.foto;
-        photo.href = PROMO.foto;
+        photo.onclick = () => openLightbox(PROMO.foto);
         photo.classList.add('show');
       }else{
         photo.classList.remove('show');
@@ -957,10 +977,12 @@
     const tipoF = $('#filterTipo').value;
     const calidadF = $('#filterCalidad').value;
     const marcaF = $('#filterMarca').value;
+    const nombreF = stripAccents($('#filterNombre').value).toLowerCase().trim();
     const filtrados = productos.filter(p =>
       (!tipoF || (p.tipo || 'ceramica') === tipoF) &&
       (!calidadF || p.calidad === calidadF) &&
-      (!marcaF || p.marca === marcaF)
+      (!marcaF || p.marca === marcaF) &&
+      (!nombreF || stripAccents(p.nombre || '').toLowerCase().includes(nombreF))
     );
     if(!filtrados.length){
       grid.innerHTML = '<div class="empty-state">No hay productos que coincidan con ese filtro.</div>';
@@ -971,7 +993,7 @@
       if(p.tipo === 'insumo'){
         return `
       <div class="card">
-        ${p.foto ? `<a class="photo" href="${p.foto}" target="_blank" style="background-image:url(${p.foto})"></a>` : `<div class="photo empty"></div>`}
+        ${p.foto ? `<div class="photo" onclick="__ceram.openLightboxFor('${p.id}')" style="background-image:url(${p.foto})"></div>` : `<div class="photo empty"></div>`}
         <div class="body">
           <div class="nombre">${escapeHtml(p.nombre || 'Producto sin nombre')}</div>
           <div class="meta">${escapeHtml(p.categoriaInsumo || '')}${p.marca ? ' · ' + escapeHtml(p.marca) : ''}${p.presentacion ? ' · ' + escapeHtml(p.presentacion) : ''}</div>
@@ -985,7 +1007,7 @@
       }
       return `
       <div class="card">
-        ${p.foto ? `<a class="photo" href="${p.foto}" target="_blank" style="background-image:url(${p.foto})"></a>` : `<div class="photo empty"></div>`}
+        ${p.foto ? `<div class="photo" onclick="__ceram.openLightboxFor('${p.id}')" style="background-image:url(${p.foto})"></div>` : `<div class="photo empty"></div>`}
         <div class="body">
           <div class="nombre">${escapeHtml(p.nombre || 'Modelo sin nombre')}</div>
           <div class="meta">${escapeHtml(p.medida || '')}${p.marca ? ' · ' + escapeHtml(p.marca) : ''}${p.calidad ? ' · ' + escapeHtml(p.calidad) : ''}</div>
@@ -1153,7 +1175,13 @@
       list.innerHTML = '<p class="hint">No hay productos cargados todavía.</p>';
       return;
     }
-    list.innerHTML = productos.map(p => {
+    const buscar = stripAccents($('#adminBuscarNombre').value).toLowerCase().trim();
+    const visibles = buscar ? productos.filter(p => stripAccents(p.nombre||'').toLowerCase().includes(buscar)) : productos;
+    if(!visibles.length){
+      list.innerHTML = '<p class="hint">Ningún producto coincide con esa búsqueda.</p>';
+      return;
+    }
+    list.innerHTML = visibles.map(p => {
       const detalle = p.tipo === 'insumo'
         ? `${escapeHtml(p.categoriaInsumo||'Insumo')}${p.presentacion ? ' · ' + escapeHtml(p.presentacion) : ''}${p.precio ? ' · ' + money(p.precio) : ''}`
         : `${escapeHtml(p.medida||'')} · 1 caja = ${p.rendimiento} m²${p.precio ? ' · ' + money(p.precio) + '/m²' : ''}`;
@@ -1707,6 +1735,7 @@
   // ---------- Wire up ----------
   function bindEvents(){
     $('#openAdmin').addEventListener('click', openAdmin);
+    $('#imgLightbox').addEventListener('click', closeLightbox);
     $('#closeAdmin').addEventListener('click', closeAdmin);
     $('#pinSubmit').addEventListener('click', checkPin);
     $('#pinInput').addEventListener('keydown', e => { if(e.key === 'Enter') checkPin(); });
@@ -1734,6 +1763,8 @@
     $('#filterCalidad').addEventListener('change', renderCatalog);
     $('#filterMarca').addEventListener('change', renderCatalog);
     $('#filterTipo').addEventListener('change', renderCatalog);
+    $('#filterNombre').addEventListener('input', renderCatalog);
+    $('#adminBuscarNombre').addEventListener('input', renderAdminProducts);
     $('#waMainBtn').addEventListener('click', (e) => {
       e.preventDefault();
       window.open(waLink('Hola! Quería consultar por las cerámicas.'), '_blank');
@@ -1741,7 +1772,21 @@
   }
 
   // Exposed for inline onclick handlers
-  window.__ceram = { calcularCon, editProduct, deleteProduct };
+  function openLightbox(src){
+    if(!src) return;
+    $('#lightboxImg').src = src;
+    $('#imgLightbox').classList.add('show');
+  }
+  function closeLightbox(){
+    $('#imgLightbox').classList.remove('show');
+    $('#lightboxImg').src = '';
+  }
+  function openLightboxFor(id){
+    const p = productos.find(x => x.id === id);
+    if(p && p.foto) openLightbox(p.foto);
+  }
+
+  window.__ceram = { calcularCon, editProduct, deleteProduct, openLightboxFor };
 
   // ---------- Init ----------
   async function init(){
