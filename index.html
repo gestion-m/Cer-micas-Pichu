@@ -539,6 +539,14 @@
             <input type="number" id="pRend" min="0.01" step="0.01" placeholder="ej: 1.44">
           </div>
           <div class="field">
+            <label for="pPiezasCaja">Piezas por caja (opcional)</label>
+            <input type="number" id="pPiezasCaja" min="1" step="1" placeholder="ej: 4">
+          </div>
+          <div class="field full" style="margin-bottom:0;">
+            <button type="button" class="btn btn-ghost btn-sm" id="sugerirConsumoBtn">Sugerir pegamento/pastina según la medida</button>
+            <div class="hint">Es una estimación general (junta de 3mm, espesor 8mm) — revisala según la ficha técnica de lo que uses.</div>
+          </div>
+          <div class="field">
             <label for="pPeg">Pegamento (kg por m²)</label>
             <input type="number" id="pPeg" min="0" step="0.1" value="4">
           </div>
@@ -607,6 +615,15 @@
           </div>
         </div>
         <button class="btn btn-glaze btn-sm" id="bulkUpdateBtn" style="margin-top:10px;">Aplicar</button>
+      </div>
+
+      <div class="admin-form show" style="margin-bottom:20px;">
+        <h3 style="font-size:16px;">Cargar fotos en lote (por nombre de archivo)</h3>
+        <p class="hint">Elegí varias fotos a la vez. A cada una se le busca el producto cuyo nombre se parezca más al nombre del archivo (ej: "sauce gris 43x43.jpg" se asigna a "Sauce gris 43x43 2°"). Poné nombres de archivo parecidos al nombre del producto para que matchee bien.</p>
+        <div class="import-row">
+          <input type="file" id="bulkFotos" accept="image/*" multiple>
+        </div>
+        <button class="btn btn-glaze btn-sm" id="bulkFotosBtn" style="margin-top:10px;">Asignar fotos</button>
       </div>
 
       <div class="field" style="max-width:360px;">
@@ -1012,7 +1029,7 @@
         <div class="body">
           <div class="nombre">${escapeHtml(p.nombre || 'Modelo sin nombre')}</div>
           <div class="meta">${escapeHtml(p.medida || '')}${p.marca ? ' · ' + escapeHtml(p.marca) : ''}${p.calidad ? ' · ' + escapeHtml(p.calidad) : ''}</div>
-          <div class="meta">1 caja cubre ${p.rendimiento} m²</div>
+          <div class="meta">1 caja cubre ${p.rendimiento} m²${p.piezasPorCaja ? ' (' + p.piezasPorCaja + ' piezas)' : ''}</div>
           ${p.precio ? `<div class="precio">${money(p.precio)} / m²</div>` : ''}
           <div class="actions">
             <button class="btn btn-ghost btn-sm" onclick="__ceram.calcularCon('${p.id}')">Calcular</button>
@@ -1185,7 +1202,7 @@
     list.innerHTML = visibles.map(p => {
       const detalle = p.tipo === 'insumo'
         ? `${escapeHtml(p.categoriaInsumo||'Insumo')}${p.presentacion ? ' · ' + escapeHtml(p.presentacion) : ''}${p.precio ? ' · ' + money(p.precio) : ''}`
-        : `${escapeHtml(p.medida||'')} · 1 caja = ${p.rendimiento} m²${p.precio ? ' · ' + money(p.precio) + '/m²' : ''}`;
+        : `${escapeHtml(p.medida||'')} · 1 caja = ${p.rendimiento} m²${p.piezasPorCaja ? ' (' + p.piezasPorCaja + ' piezas)' : ''}${p.precio ? ' · ' + money(p.precio) + '/m²' : ''}`;
       return `
       <div class="admin-row">
         ${p.foto ? `<img src="${p.foto}">` : '<div class="noimg"></div>'}
@@ -1217,6 +1234,7 @@
     $('#pMarca').value = product ? (product.marca || '') : '';
     $('#pCalidad').value = product ? (product.calidad || '') : '';
     $('#pRend').value = product ? product.rendimiento : '';
+    $('#pPiezasCaja').value = product ? (product.piezasPorCaja || '') : '';
     $('#pPrecio').value = product ? (product.precio || '') : '';
     $('#pPeg').value = product ? product.pegamentoKgM2 : 4;
     $('#pPegBolsa').value = product ? product.pegamentoBolsaKg : 25;
@@ -1281,6 +1299,7 @@
         marca: $('#pMarca').value.trim(),
         calidad: $('#pCalidad').value,
         rendimiento,
+        piezasPorCaja: $('#pPiezasCaja').value ? parseInt($('#pPiezasCaja').value) : null,
         precio: $('#pPrecio').value ? parseFloat($('#pPrecio').value) : null,
         pegamentoKgM2: parseFloat($('#pPeg').value) || 0,
         pegamentoBolsaKg: parseFloat($('#pPegBolsa').value) || 25,
@@ -1364,6 +1383,74 @@
     renderCatalog();
   }
 
+  // ---------- Bulk photo upload by filename matching ----------
+  function normalizarParaMatch(str){
+    return stripAccents(String(str||''))
+      .toLowerCase()
+      .replace(/\.[a-z0-9]+$/i, '')       // saca la extensión del archivo
+      .replace(/[_\-]+/g, ' ')
+      .replace(/[^a-z0-9° ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function encontrarMejorProducto(nombreArchivo, candidatos){
+    const archivoNorm = normalizarParaMatch(nombreArchivo);
+    const archivoTokens = archivoNorm.split(' ').filter(Boolean);
+    if(!archivoTokens.length) return null;
+    let mejor = null, mejorScore = 0;
+    for(const p of candidatos){
+      const prodNorm = normalizarParaMatch(p.nombre);
+      const prodTokens = prodNorm.split(' ').filter(Boolean);
+      if(!prodTokens.length) continue;
+      let coincidencias = 0;
+      for(const t of archivoTokens){ if(prodTokens.includes(t)) coincidencias++; }
+      const score = coincidencias / Math.max(prodTokens.length, archivoTokens.length);
+      if(score > mejorScore){ mejorScore = score; mejor = p; }
+    }
+    return mejorScore >= 0.6 ? mejor : null;
+  }
+
+  async function bulkAsignarFotos(){
+    const statusEl = $('#prodStatus');
+    const fileInput = $('#bulkFotos');
+    const archivos = fileInput.files ? Array.from(fileInput.files) : [];
+    if(!archivos.length){
+      statusEl.textContent = 'Elegí una o más fotos primero.';
+      statusEl.className = 'status-msg show status-err';
+      return;
+    }
+    statusEl.textContent = `Asignando fotos (0/${archivos.length})…`;
+    statusEl.className = 'status-msg show status-ok';
+    const usados = new Set();
+    let asignadas = 0;
+    const sinMatch = [];
+    for(let i=0; i<archivos.length; i++){
+      const file = archivos[i];
+      statusEl.textContent = `Asignando fotos (${i+1}/${archivos.length})…`;
+      const candidatos = productos.filter(p => !usados.has(p.id));
+      const match = encontrarMejorProducto(file.name, candidatos);
+      if(!match){ sinMatch.push(file.name); continue; }
+      try{
+        const foto = await resizeImageToBase64(file);
+        const ok = await saveOneProducto({foto}, match.id);
+        if(ok){ match.foto = foto; usados.add(match.id); asignadas++; }
+        else sinMatch.push(file.name);
+      }catch(e){
+        sinMatch.push(file.name);
+      }
+    }
+    statusEl.textContent = `Se asignaron ${asignadas} de ${archivos.length} fotos.` +
+      (sinMatch.length ? ` Sin coincidencia clara: ${sinMatch.join(', ')}.` : '');
+    statusEl.className = 'status-msg show ' + (asignadas ? 'status-ok' : 'status-err');
+    fileInput.value = '';
+    renderAdminProducts();
+    renderFilterOptions();
+    renderCatalog();
+    renderCalcSelect();
+    renderHeroTiles();
+  }
+
   // ---------- Bulk import from Excel/CSV ----------
   let importWorkbook = null;
   let embalajeIndex = [];
@@ -1438,6 +1525,26 @@
   function guessMedida(nombre){
     const m = String(nombre).match(/\d{2,3}([.,]\d+)?\s*x\s*\d{2,3}([.,]\d+)?/i);
     return m ? m[0].replace(/\s+/g,'') : '';
+  }
+
+  // Estimación general de consumo a partir de la medida (junta de 3mm, espesor 8mm,
+  // densidad de pastina 1.6). Es una referencia de partida, no reemplaza la ficha técnica.
+  function sugerirConsumoPorMedida(medidaTexto){
+    const m = String(medidaTexto).match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i);
+    if(!m) return null;
+    const L = parseFloat(m[1].replace(',','.'));
+    const W = parseFloat(m[2].replace(',','.'));
+    if(!L || !W) return null;
+    const maxLado = Math.max(L, W);
+    let pegamentoKgM2;
+    if(maxLado <= 30) pegamentoKgM2 = 3.5;
+    else if(maxLado <= 45) pegamentoKgM2 = 4;
+    else if(maxLado <= 60) pegamentoKgM2 = 4.5;
+    else pegamentoKgM2 = 5.5;
+    const juntaMM = 3, espesorMM = 8, densidad = 1.6;
+    const Lmm = L*10, Wmm = W*10;
+    const pastinaKgM2 = Math.round((((Lmm+Wmm)/(Lmm*Wmm)) * juntaMM * espesorMM * densidad) * 1000) / 1000;
+    return {pegamentoKgM2, pastinaKgM2: Math.max(pastinaKgM2, 0.1)};
   }
 
   function stripAccents(str){
@@ -1761,7 +1868,21 @@
     $all('.admin-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
     $('#newProductBtn').addEventListener('click', () => openProductForm(null));
+    $('#sugerirConsumoBtn').addEventListener('click', () => {
+      const sug = sugerirConsumoPorMedida($('#pMedida').value);
+      const statusEl = $('#prodStatus');
+      if(!sug){
+        statusEl.textContent = 'Escribí la medida como "60x60" para poder sugerir.';
+        statusEl.className = 'status-msg show status-err';
+        return;
+      }
+      $('#pPeg').value = sug.pegamentoKgM2;
+      $('#pPastina').value = sug.pastinaKgM2;
+      statusEl.textContent = `Sugerido: ${sug.pegamentoKgM2} kg/m² de pegamento y ${sug.pastinaKgM2} kg/m² de pastina. Podés ajustarlo.`;
+      statusEl.className = 'status-msg show status-ok';
+    });
     $('#bulkUpdateBtn').addEventListener('click', bulkUpdatePrecios);
+    $('#bulkFotosBtn').addEventListener('click', bulkAsignarFotos);
     $('#cancelProduct').addEventListener('click', closeProductForm);
     $('#pTipo').addEventListener('change', toggleTipoFields);
     $('#saveProduct').addEventListener('click', saveProduct);
