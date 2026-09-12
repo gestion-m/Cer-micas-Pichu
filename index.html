@@ -1539,11 +1539,11 @@
         const row = rows[r];
         const fc = row.findIndex(v => stripAccents(normHeader(v)).includes('formato'));
         const mc = row.findIndex(v => {
-          const h = stripAccents(normHeader(v)).replace(/\s+/g,'');
+          const h = stripAccents(normHeader(v)).replace(/[^a-z0-9]/g,'');
           return h.includes('m2xcaja') || h.includes('m2porcaja') || h.includes('m2caja');
         });
         const pc = row.findIndex(v => {
-          const h = stripAccents(normHeader(v)).replace(/\s+/g,'');
+          const h = stripAccents(normHeader(v)).replace(/[^a-z0-9]/g,'');
           return h.includes('cantxcaja') || h.includes('cantidadxcaja') || h.includes('piezasxcaja') || h.includes('pzasxcaja');
         });
         if(fc !== -1 && mc !== -1){ headerRowIdx = r; formatoCol = fc; m2Col = mc; piezasCol = pc; break; }
