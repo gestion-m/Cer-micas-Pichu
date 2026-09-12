@@ -324,7 +324,7 @@
   <section id="calculadora">
     <div class="section-head">
       <h2>Calculadora de materiales</h2>
-      <p>Ingresá los m² a cubrir y te decimos cuántas cajas, cuánto pegamento y cuánto plasticol comprar.</p>
+      <p>Ingresá los m² a cubrir y te decimos cuántas cajas, cuánto pegamento y cuánta pastina comprar.</p>
     </div>
     <div class="calc-box">
       <div>
@@ -345,14 +345,6 @@
           <div class="field">
             <label for="manPegBolsa">Bolsa de pegamento (kg)</label>
             <input type="number" id="manPegBolsa" min="1" step="1" value="25">
-          </div>
-          <div class="field">
-            <label for="manPlas">Plasticol (L por m²)</label>
-            <input type="number" id="manPlas" min="0" step="0.05" value="0.5">
-          </div>
-          <div class="field">
-            <label for="manPlasEnv">Envase de plasticol (L)</label>
-            <input type="number" id="manPlasEnv" min="0.5" step="0.5" value="4">
           </div>
           <div class="field">
             <label for="manPastina">Pastina (kg por m²)</label>
@@ -553,14 +545,6 @@
           <div class="field">
             <label for="pPegBolsa">Bolsa de pegamento (kg)</label>
             <input type="number" id="pPegBolsa" min="1" step="1" value="25">
-          </div>
-          <div class="field">
-            <label for="pPlas">Plasticol (L por m²)</label>
-            <input type="number" id="pPlas" min="0" step="0.05" value="0.5">
-          </div>
-          <div class="field">
-            <label for="pPlasEnv">Envase de plasticol (L)</label>
-            <input type="number" id="pPlasEnv" min="0.5" step="0.5" value="4">
           </div>
           <div class="field">
             <label for="pPastina">Pastina (kg por m²)</label>
@@ -1076,12 +1060,10 @@
       const rendimiento = parseFloat($('#manRend').value);
       const pegKgM2 = parseFloat($('#manPeg').value) || 0;
       const pegBolsa = parseFloat($('#manPegBolsa').value) || 1;
-      const plasLM2 = parseFloat($('#manPlas').value) || 0;
-      const plasEnv = parseFloat($('#manPlasEnv').value) || 1;
       const pastinaKgM2 = parseFloat($('#manPastina').value) || 0;
       const pastinaBolsa = parseFloat($('#manPastinaBolsa').value) || 1;
       if(!rendimiento || rendimiento <= 0) return null;
-      return {rendimiento, pegKgM2, pegBolsa, plasLM2, plasEnv, pastinaKgM2, pastinaBolsa, precio:null};
+      return {rendimiento, pegKgM2, pegBolsa, pastinaKgM2, pastinaBolsa, precio:null};
     }else{
       const id = $('#calcProducto').value;
       const p = productos.find(x => x.id === id);
@@ -1090,8 +1072,6 @@
         rendimiento: parseFloat(p.rendimiento),
         pegKgM2: parseFloat(p.pegamentoKgM2) || 0,
         pegBolsa: parseFloat(p.pegamentoBolsaKg) || 1,
-        plasLM2: parseFloat(p.plasticolLM2) || 0,
-        plasEnv: parseFloat(p.plasticolEnvaseL) || 1,
         pastinaKgM2: parseFloat(p.pastinaKgM2) || 0,
         pastinaBolsa: parseFloat(p.pastinaBolsaKg) || 1,
         precio: p.precio || null
@@ -1115,8 +1095,6 @@
     const cajasConMargen = Math.ceil((m2 * 1.1) / params.rendimiento);
     const pegTotalKg = m2 * params.pegKgM2;
     const bolsas = params.pegKgM2 > 0 ? Math.ceil(pegTotalKg / params.pegBolsa) : 0;
-    const plasTotalL = m2 * params.plasLM2;
-    const envases = params.plasLM2 > 0 ? Math.ceil(plasTotalL / params.plasEnv) : 0;
     const pastinaTotalKg = m2 * params.pastinaKgM2;
     const pastinaBolsas = params.pastinaKgM2 > 0 ? Math.ceil(pastinaTotalKg / params.pastinaBolsa) : 0;
 
@@ -1146,11 +1124,6 @@
         <div class="result-num">${pastinaBolsas || '—'}</div>
         <div class="result-label">bolsas de pastina de ${params.pastinaBolsa} kg</div>
         <div class="result-sub">${pastinaTotalKg > 0 ? '≈ ' + pastinaTotalKg.toFixed(1) + ' kg en total' : ''}</div>
-      </div>
-      <div class="result-row">
-        <div class="result-num">${envases || '—'}</div>
-        <div class="result-label">envases de plasticol de ${params.plasEnv} L</div>
-        <div class="result-sub">${plasTotalL > 0 ? '≈ ' + plasTotalL.toFixed(1) + ' L en total' : ''}</div>
       </div>${totalRow}
     `;
   }
@@ -1238,8 +1211,6 @@
     $('#pPrecio').value = product ? (product.precio || '') : '';
     $('#pPeg').value = product ? product.pegamentoKgM2 : 4;
     $('#pPegBolsa').value = product ? product.pegamentoBolsaKg : 25;
-    $('#pPlas').value = product ? product.plasticolLM2 : 0.5;
-    $('#pPlasEnv').value = product ? product.plasticolEnvaseL : 4;
     $('#pPastina').value = product ? (product.pastinaKgM2 != null ? product.pastinaKgM2 : 0.4) : 0.4;
     $('#pPastinaBolsa').value = product ? (product.pastinaBolsaKg != null ? product.pastinaBolsaKg : 5) : 5;
     $('#pCategoriaInsumo').value = product ? (product.categoriaInsumo || 'Pegamento') : 'Pegamento';
@@ -1303,8 +1274,6 @@
         precio: $('#pPrecio').value ? parseFloat($('#pPrecio').value) : null,
         pegamentoKgM2: parseFloat($('#pPeg').value) || 0,
         pegamentoBolsaKg: parseFloat($('#pPegBolsa').value) || 25,
-        plasticolLM2: parseFloat($('#pPlas').value) || 0,
-        plasticolEnvaseL: parseFloat($('#pPlasEnv').value) || 4,
         pastinaKgM2: parseFloat($('#pPastina').value) || 0,
         pastinaBolsaKg: parseFloat($('#pPastinaBolsa').value) || 5
       };
@@ -1565,7 +1534,7 @@
       if(!keyword) return;
       const sheet = workbook.Sheets[name];
       const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
-      let headerRowIdx = -1, formatoCol = -1, m2Col = -1;
+      let headerRowIdx = -1, formatoCol = -1, m2Col = -1, piezasCol = -1;
       for(let r=0; r<Math.min(rows.length,10); r++){
         const row = rows[r];
         const fc = row.findIndex(v => stripAccents(normHeader(v)).includes('formato'));
@@ -1573,7 +1542,11 @@
           const h = stripAccents(normHeader(v)).replace(/\s+/g,'');
           return h.includes('m2xcaja') || h.includes('m2porcaja') || h.includes('m2caja');
         });
-        if(fc !== -1 && mc !== -1){ headerRowIdx = r; formatoCol = fc; m2Col = mc; break; }
+        const pc = row.findIndex(v => {
+          const h = stripAccents(normHeader(v)).replace(/\s+/g,'');
+          return h.includes('cantxcaja') || h.includes('cantidadxcaja') || h.includes('piezasxcaja') || h.includes('pzasxcaja');
+        });
+        if(fc !== -1 && mc !== -1){ headerRowIdx = r; formatoCol = fc; m2Col = mc; piezasCol = pc; break; }
       }
       if(headerRowIdx === -1) return;
       const map = {};
@@ -1583,19 +1556,26 @@
         const m2 = row[m2Col];
         if(!formato || m2 === '' || m2 === undefined) continue;
         const val = parseFloat(m2);
-        if(!isNaN(val)) map[normalizeFormato(formato)] = val;
+        if(isNaN(val)) continue;
+        const piezasVal = piezasCol !== -1 ? parseInt(row[piezasCol]) : null;
+        map[normalizeFormato(formato)] = {m2: val, piezas: (piezasVal && !isNaN(piezasVal)) ? piezasVal : null};
       }
       idx.push({keyword, map});
     });
     return idx;
   }
 
-  function findRendimientoPorMarca(embalajeIndex, brand, medida){
+  function findEmbalajeInfo(embalajeIndex, brand, medida){
     if(!brand || !medida || !embalajeIndex.length) return null;
     const brandNorm = stripAccents(brand).toLowerCase();
     const entry = embalajeIndex.find(e => brandNorm.includes(e.keyword));
     if(!entry) return null;
     return entry.map[normalizeFormato(medida)] || null;
+  }
+
+  function findRendimientoPorMarca(embalajeIndex, brand, medida){
+    const info = findEmbalajeInfo(embalajeIndex, brand, medida);
+    return info ? info.m2 : null;
   }
 
   async function onExcelFileChosen(){
@@ -1705,18 +1685,17 @@
       }else{
         const medida = header.medidaCol !== -1 ? String(row[header.medidaCol] || '').trim() : guessMedida(nombre);
         let rendimiento = header.rendCol !== -1 ? parseFloat(row[header.rendCol]) : null;
-        if(!rendimiento){
-          const auto = findRendimientoPorMarca(embalajeIndex, currentBrand, medida);
-          if(auto){ rendimiento = auto; autoRend++; }
-        }
+        let piezasPorCaja = null;
+        const embInfo = findEmbalajeInfo(embalajeIndex, currentBrand, medida);
+        if(!rendimiento && embInfo){ rendimiento = embInfo.m2; autoRend++; }
+        if(embInfo && embInfo.piezas) piezasPorCaja = embInfo.piezas;
         if(!rendimiento) rendimiento = 1;
         data = {
           tipo: 'ceramica',
-          nombre, foto: '', medida, rendimiento,
+          nombre, foto: '', medida, rendimiento, piezasPorCaja,
           marca: currentBrand, calidad: calidadLote,
           precio: precioFinal,
           pegamentoKgM2: 4, pegamentoBolsaKg: 25,
-          plasticolLM2: 0.5, plasticolEnvaseL: 4,
           pastinaKgM2: 0.4, pastinaBolsaKg: 5
         };
       }
