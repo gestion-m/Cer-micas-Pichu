@@ -61,10 +61,12 @@
   nav a:hover{color:var(--ink);border-color:var(--clay);}
   .admin-toggle{
     background:none;border:1px solid var(--line);border-radius:100px;
-    width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+    width:34px;height:34px;display:none;align-items:center;justify-content:center;
     color:var(--ink-soft);
   }
   .admin-toggle:hover{border-color:var(--clay);color:var(--clay);}
+  .admin-toggle.show{display:flex;}
+  .logo{cursor:pointer;user-select:none;}
 
   /* Hero */
   .hero{padding:56px 0 40px;}
@@ -250,7 +252,7 @@
 
 <header>
   <div class="headbar">
-    <div class="logo">Cerámicas <span>Pichu</span></div>
+    <div class="logo" id="logoSecret" title="">Cerámicas <span>Pichu</span></div>
     <nav>
       <a href="#catalogo">Catálogo</a>
       <a href="#calculadora">Calculadora</a>
@@ -447,7 +449,7 @@
 
       <div class="admin-form show" style="margin-bottom:20px;">
         <h3 style="font-size:16px;">Importar varios productos desde Excel</h3>
-        <p class="hint">Funciona con listas de proveedor (columnas tipo "Descripción" / "Precio"). El archivo puede tener varias hojas — elegís cuál importar. Podés aplicar un % de aumento sobre el precio del proveedor antes de cargarlo. Si el Excel tiene hojas de embalaje (ej. "EMBALAJE CORTINES"), se usan automáticamente para calcular cuántos m² trae cada caja según la marca y medida de cada modelo. Acepta .xlsx, .xls o .csv.</p>
+        <p class="hint">Funciona con listas de proveedor (columnas tipo "Descripción" / "Precio"). El archivo puede tener varias hojas — elegís cuál importar. Si dentro de una misma hoja hay dos tablas lado a lado (por ejemplo 1ra calidad y 2da calidad en columnas separadas), se leen las dos automáticamente. Podés aplicar un % de aumento sobre el precio del proveedor antes de cargarlo. Si el Excel tiene hojas de embalaje (ej. "EMBALAJE CORTINES"), se usan automáticamente para calcular cuántos m² trae cada caja según la marca y medida de cada modelo. Acepta .xlsx, .xls o .csv.</p>
         <div class="import-row">
           <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
         </div>
@@ -1457,30 +1459,61 @@
     return -1;
   }
 
-  // Busca, dentro de las primeras filas de la hoja, la fila que funciona como encabezado.
-  // Primero intenta con los nombres de columna conocidos; si no los encuentra, usa como
-  // columna de "nombre" cualquier columna con texto que no sea, a su vez, de precio.
-  function findHeaderRow(rows){
+  // Busca, dentro de las primeras filas de la hoja, la columna que hace de nombre para
+  // una columna de precio dada: primero un encabezado de nombre conocido en esa misma fila,
+  // y si no hay, la celda con texto más cercana a la izquierda que no sea a su vez de precio.
+  function findNameColForPrice(row, priceCol){
+    for(let i=priceCol-1;i>=0;i--){
+      const hh = normHeader(row[i]);
+      if(hh && NAME_HEADERS.some(k => hh === k || hh.includes(k))) return i;
+    }
+    for(let i=priceCol-1;i>=0;i--){
+      const hh = normHeader(row[i]);
+      if(!hh) continue;
+      if(PRICE_HEADERS.some(k => hh === k || hh.includes(k))) continue;
+      return i;
+    }
+    return -1;
+  }
+
+  // Busca, dentro de las primeras filas de la hoja, TODAS las tablas de productos que haya.
+  // Algunas listas de proveedor traen dos (o más) columnas de productos lado a lado —por
+  // ejemplo, 1ra calidad a la izquierda y 2da calidad a la derecha, cada una con su propio
+  // "Descripción"/"Precio"— y hay que leerlas todas, no solo la primera que aparece.
+  function findHeaderBlocks(rows){
     const limit = Math.min(rows.length, 15);
+    const blocks = [];
+    const usedPriceCols = new Set();
     for(let r=0;r<limit;r++){
       const row = rows[r];
-      const priceCol = findCol(row, PRICE_HEADERS);
-      if(priceCol === -1) continue;
-      let nameCol = findCol(row, NAME_HEADERS);
-      if(nameCol === -1){
-        for(let i=0;i<row.length;i++){
-          if(i === priceCol) continue;
-          const h = normHeader(row[i]);
-          if(h) { nameCol = i; break; }
-        }
-      }
-      if(nameCol !== -1){
-        return {rowIndex:r, nameCol, priceCol,
+      for(let c=0;c<row.length;c++){
+        if(usedPriceCols.has(c)) continue;
+        const h = normHeader(row[c]);
+        if(!h) continue;
+        if(!PRICE_HEADERS.some(k => h === k || h.includes(k))) continue;
+        const nameCol = findNameColForPrice(row, c);
+        if(nameCol === -1) continue;
+        usedPriceCols.add(c);
+        blocks.push({
+          rowIndex: r, nameCol, priceCol: c,
           medidaCol: findCol(row, MEDIDA_HEADERS),
-          rendCol: findCol(row, REND_HEADERS)};
+          rendCol: findCol(row, REND_HEADERS)
+        });
       }
     }
-    return null;
+    return blocks;
+  }
+
+  // Adivina la calidad (1ra/2da/3ra) a partir del propio nombre del modelo, que suele
+  // terminar en "1°", "2°", etc. Esto permite que una sola tabla que mezcle calidades
+  // (como pasa cuando hay dos columnas lado a lado) quede bien clasificada por fila,
+  // en vez de depender únicamente del combo manual del formulario.
+  function calidadDesdeNombre(nombre){
+    const n = stripAccents(nombre || '').toLowerCase();
+    if(/\b1\s*[°ºª]|\b1ra\b|primera/.test(n)) return '1ra calidad';
+    if(/\b2\s*[°ºª]|\b2da\b|segunda/.test(n)) return '2da calidad';
+    if(/\b3\s*[°ºª]|\b3ra\b|tercera/.test(n)) return '3ra calidad';
+    return '';
   }
 
   function parsePrecio(v){
@@ -1615,31 +1648,17 @@
     const sheetName = $('#excelSheetSelect').value;
     const sheet = importWorkbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
-    const header = findHeaderRow(rows);
-    if(!header){
+    const blocks = findHeaderBlocks(rows);
+    if(!blocks.length){
       statusEl.textContent = 'No pude encontrar las columnas de nombre y precio en esa hoja. Probá con otra hoja del archivo.';
       statusEl.className = 'status-msg show status-err';
       return;
     }
     const markupPct = parseFloat($('#excelMarkup').value) || 0;
-    const calidadLote = $('#excelCalidad').value;
+    const calidadManual = $('#excelCalidad').value;
     const tipoLote = $('#excelTipoLote').value;
     statusEl.textContent = 'Importando…';
     statusEl.className = 'status-msg show status-ok';
-
-    // Detecta la marca/sección vigente en cada fila (líneas como "CERAMICA CORTINES" o
-    // "PASTINAS" que aparecen antes de un grupo de productos, sin precio).
-    let currentBrand = '';
-    for(let r=0; r<header.rowIndex; r++){
-      const v = String((rows[r] && rows[r][header.nameCol]) || '').trim();
-      if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = v;
-    }
-    // Si el propio encabezado de la hoja ya es descriptivo (ej: "ADHESIVO" en vez de
-    // "Descripción"), lo usamos como categoría/marca inicial.
-    if(!currentBrand){
-      const headerLabel = String(rows[header.rowIndex][header.nameCol] || '').trim();
-      if(headerLabel && !NAME_HEADERS.includes(normHeader(headerLabel))) currentBrand = headerLabel;
-    }
 
     function guessCategoriaInsumo(texto){
       const n = stripAccents(texto).toLowerCase();
@@ -1656,66 +1675,91 @@
     }
 
     let cargados = 0, actualizados = 0, saltados = 0, sinStock = 0, autoRend = 0;
-    for(let r = header.rowIndex + 1; r < rows.length; r++){
-      const row = rows[r];
-      if(!row) { saltados++; continue; }
-      if(filaSinStock(row)){ sinStock++; continue; }
-      const nombreRaw = row[header.nameCol];
-      const precioBase = parsePrecio(row[header.priceCol]);
-      if(precioBase === null){
-        const v = String(nombreRaw || '').trim();
+
+    // Cada "bloque" es una tabla nombre/precio encontrada en la hoja (puede haber más de
+    // una, por ejemplo cuando 1ra y 2da calidad están en columnas lado a lado).
+    for(const block of blocks){
+      // Detecta la marca/sección vigente antes de este bloque (líneas como "CERAMICA
+      // CORTINES" o "PASTINAS" que aparecen antes de un grupo de productos, sin precio).
+      let currentBrand = '';
+      for(let r=0; r<block.rowIndex; r++){
+        const v = String((rows[r] && rows[r][block.nameCol]) || '').trim();
         if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = v;
-        saltados++;
-        continue;
       }
-      const nombre = String(nombreRaw || '').trim();
-      if(!nombre){ saltados++; continue; }
-      const precioFinal = markupPct ? Math.round(precioBase * (1 + markupPct/100)) : precioBase;
-
-      let data;
-      if(tipoLote === 'insumo'){
-        data = {
-          tipo: 'insumo',
-          nombre, foto: '',
-          marca: currentBrand,
-          categoriaInsumo: guessCategoriaInsumo(currentBrand + ' ' + nombre),
-          presentacion: guessPresentacion(nombre),
-          precio: precioFinal
-        };
-      }else{
-        const medida = header.medidaCol !== -1 ? String(row[header.medidaCol] || '').trim() : guessMedida(nombre);
-        let rendimiento = header.rendCol !== -1 ? parseFloat(row[header.rendCol]) : null;
-        let piezasPorCaja = null;
-        const embInfo = findEmbalajeInfo(embalajeIndex, currentBrand, medida);
-        if(!rendimiento && embInfo){ rendimiento = embInfo.m2; autoRend++; }
-        if(embInfo && embInfo.piezas) piezasPorCaja = embInfo.piezas;
-        if(!rendimiento) rendimiento = 1;
-        data = {
-          tipo: 'ceramica',
-          nombre, foto: '', medida, rendimiento, piezasPorCaja,
-          marca: currentBrand, calidad: calidadLote,
-          precio: precioFinal,
-          pegamentoKgM2: 4, pegamentoBolsaKg: 25,
-          pastinaKgM2: 0.4, pastinaBolsaKg: 5
-        };
+      // Si el propio encabezado de la hoja ya es descriptivo (ej: "ADHESIVO" en vez de
+      // "Descripción"), lo usamos como categoría/marca inicial.
+      if(!currentBrand){
+        const headerLabel = String(rows[block.rowIndex][block.nameCol] || '').trim();
+        if(headerLabel && !NAME_HEADERS.includes(normHeader(headerLabel))) currentBrand = headerLabel;
       }
 
-      // Si ya existe un producto con el mismo nombre y tipo, lo actualiza en vez de duplicarlo
-      // (y conserva la foto que ya tenía cargada).
-      const existente = productos.find(p =>
-        (p.tipo || 'ceramica') === (data.tipo || 'ceramica') &&
-        stripAccents(p.nombre || '').toLowerCase().trim() === stripAccents(nombre).toLowerCase().trim()
-      );
-      if(existente){
-        delete data.foto;
-        const id = await saveOneProducto(data, existente.id);
-        if(id){ Object.assign(existente, data); actualizados++; } else { saltados++; }
-      }else{
-        const id = await saveOneProducto(data, null);
-        if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
+      for(let r = block.rowIndex + 1; r < rows.length; r++){
+        const row = rows[r];
+        if(!row) { saltados++; continue; }
+        if(filaSinStock(row)){ sinStock++; continue; }
+        const nombreRaw = row[block.nameCol];
+        const precioBase = parsePrecio(row[block.priceCol]);
+        if(precioBase === null){
+          const v = String(nombreRaw || '').trim();
+          if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = v;
+          saltados++;
+          continue;
+        }
+        const nombre = String(nombreRaw || '').trim();
+        if(!nombre){ saltados++; continue; }
+        const precioFinal = markupPct ? Math.round(precioBase * (1 + markupPct/100)) : precioBase;
+
+        let data;
+        if(tipoLote === 'insumo'){
+          data = {
+            tipo: 'insumo',
+            nombre, foto: '',
+            marca: currentBrand,
+            categoriaInsumo: guessCategoriaInsumo(currentBrand + ' ' + nombre),
+            presentacion: guessPresentacion(nombre),
+            precio: precioFinal
+          };
+        }else{
+          // La calidad se detecta primero del propio nombre del modelo (que suele terminar
+          // en "1°", "2°", etc.); si no se puede detectar, se usa el combo manual del
+          // formulario. Esto evita que, al leer varias columnas de la misma hoja, todo
+          // termine etiquetado con la misma calidad.
+          const calidadLote = calidadDesdeNombre(nombre) || calidadManual;
+          const medida = block.medidaCol !== -1 ? String(row[block.medidaCol] || '').trim() : guessMedida(nombre);
+          let rendimiento = block.rendCol !== -1 ? parseFloat(row[block.rendCol]) : null;
+          let piezasPorCaja = null;
+          const embInfo = findEmbalajeInfo(embalajeIndex, currentBrand, medida);
+          if(!rendimiento && embInfo){ rendimiento = embInfo.m2; autoRend++; }
+          if(embInfo && embInfo.piezas) piezasPorCaja = embInfo.piezas;
+          if(!rendimiento) rendimiento = 1;
+          data = {
+            tipo: 'ceramica',
+            nombre, foto: '', medida, rendimiento, piezasPorCaja,
+            marca: currentBrand, calidad: calidadLote,
+            precio: precioFinal,
+            pegamentoKgM2: 4, pegamentoBolsaKg: 25,
+            pastinaKgM2: 0.4, pastinaBolsaKg: 5
+          };
+        }
+
+        // Si ya existe un producto con el mismo nombre y tipo, lo actualiza en vez de
+        // duplicarlo (y conserva la foto que ya tenía cargada).
+        const existente = productos.find(p =>
+          (p.tipo || 'ceramica') === (data.tipo || 'ceramica') &&
+          stripAccents(p.nombre || '').toLowerCase().trim() === stripAccents(nombre).toLowerCase().trim()
+        );
+        if(existente){
+          delete data.foto;
+          const id = await saveOneProducto(data, existente.id);
+          if(id){ Object.assign(existente, data); actualizados++; } else { saltados++; }
+        }else{
+          const id = await saveOneProducto(data, null);
+          if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
+        }
       }
     }
-    statusEl.textContent = `Se cargaron ${cargados} productos nuevos${actualizados ? ' y se actualizaron ' + actualizados + ' que ya tenías cargados' : ''} desde "${sheetName}"${autoRend ? ' (' + autoRend + ' con el rendimiento por caja calculado automáticamente)' : ''}.${sinStock ? ' ' + sinStock + ' filas no se cargaron por decir "sin stock".' : ''}${saltados ? ' ' + saltados + ' filas se saltearon.' : ''} Ahora podés agregarles foto a los nuevos editando cada uno.`;
+
+    statusEl.textContent = `Se cargaron ${cargados} productos nuevos${actualizados ? ' y se actualizaron ' + actualizados + ' que ya tenías cargados' : ''} desde "${sheetName}"${blocks.length > 1 ? ' (' + blocks.length + ' tablas encontradas en la hoja)' : ''}${autoRend ? ' (' + autoRend + ' con el rendimiento por caja calculado automáticamente)' : ''}.${sinStock ? ' ' + sinStock + ' filas no se cargaron por decir "sin stock".' : ''}${saltados ? ' ' + saltados + ' filas se saltearon.' : ''} Ahora podés agregarles foto a los nuevos editando cada uno.`;
     statusEl.className = 'status-msg show status-ok';
     $('#excelFile').value = '';
     $('#excelSheetRow').style.display = 'none';
@@ -1724,7 +1768,7 @@
     importWorkbook = null;
     renderAdminProducts();
     renderFilterOptions();
-      renderCatalog();
+    renderCatalog();
     renderCalcSelect();
     renderHeroTiles();
   }
@@ -1836,9 +1880,28 @@
     $('#panel-' + tab).classList.add('show');
   }
 
+  // ---------- Admin: acceso oculto ----------
+  // El botón de administración está oculto para cualquiera que abra el link (por ejemplo
+  // un cliente). Tocando 5 veces seguidas el logo (en menos de 2 segundos) aparece el
+  // botón, y queda visible mientras dure esa visita a la página (se vuelve a ocultar si
+  // se cierra o recarga la pestaña).
+  let logoClickCount = 0;
+  let logoClickTimer = null;
+  function tryRevealAdmin(){
+    logoClickCount++;
+    clearTimeout(logoClickTimer);
+    logoClickTimer = setTimeout(() => { logoClickCount = 0; }, 2000);
+    if(logoClickCount >= 5){
+      logoClickCount = 0;
+      $('#openAdmin').classList.add('show');
+      try{ sessionStorage.setItem('adminBtnVisible', '1'); }catch(e){}
+    }
+  }
+
   // ---------- Wire up ----------
   function bindEvents(){
     $('#openAdmin').addEventListener('click', openAdmin);
+    $('#logoSecret').addEventListener('click', tryRevealAdmin);
     $('#imgLightbox').addEventListener('click', closeLightbox);
     $('#closeAdmin').addEventListener('click', closeAdmin);
     $('#pinSubmit').addEventListener('click', checkPin);
@@ -1909,6 +1972,9 @@
   // ---------- Init ----------
   async function init(){
     bindEvents();
+    try{
+      if(sessionStorage.getItem('adminBtnVisible') === '1') $('#openAdmin').classList.add('show');
+    }catch(e){}
     if(!firebaseConfigured){
       $('#configBanner').classList.add('show');
     }
