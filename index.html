@@ -478,6 +478,13 @@
               <option value="3ra calidad">3ra calidad</option>
             </select>
           </div>
+          <div class="field" style="margin-bottom:0;flex:1 1 100%;">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:400;">
+              <input type="checkbox" id="excelReemplazar" checked style="width:auto;">
+              Borrar los productos que ya tenía cargados de estas mismas marcas y no estén en este archivo
+            </label>
+            <div class="hint">Evita duplicados y precios viejos cuando volvés a subir la lista actualizada. Solo toca las marcas que aparecen en este archivo (no borra otras marcas ni insumos). Antes de borrar te pide confirmación.</div>
+          </div>
         </div>
         <div class="import-row">
           <button class="btn btn-glaze btn-sm" id="importExcelBtn" disabled>Elegí un archivo primero</button>
@@ -1553,6 +1560,16 @@
     return String(str == null ? '' : str).normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   }
 
+  // Saca el "1ra"/"2da"/"3ra" (y guiones sueltos) del final de un título de marca, para que
+  // "CERAMICA CORTINES 1ra" y "CERAMICA CORTINES 2da" (detectados en columnas distintas de
+  // la misma hoja) terminen guardados como la misma marca: "CERAMICA CORTINES".
+  function limpiarMarca(texto){
+    let t = String(texto == null ? '' : texto).trim();
+    t = t.replace(/\b(1ra|2da|3ra|primera|segunda|tercera)\s*(calidad)?\s*$/i, '').trim();
+    t = t.replace(/[-–—]+\s*$/, '').trim();
+    return t;
+  }
+
   function normalizeFormato(v){
     return stripAccents(String(v)).replace(/\s+/g,'').replace(',', '.').toLowerCase();
   }
@@ -1674,7 +1691,10 @@
       return row.some(v => stripAccents(String(v||'')).toLowerCase().includes('sin stock'));
     }
 
-    let cargados = 0, actualizados = 0, saltados = 0, sinStock = 0, autoRend = 0;
+    let cargados = 0, actualizados = 0, saltados = 0, sinStock = 0, autoRend = 0, eliminados = 0;
+    const marcasImportadas = new Set();
+    const nombresImportados = new Set();
+    const idUsadoPorNombre = new Map();
 
     // Cada "bloque" es una tabla nombre/precio encontrada en la hoja (puede haber más de
     // una, por ejemplo cuando 1ra y 2da calidad están en columnas lado a lado).
@@ -1684,13 +1704,13 @@
       let currentBrand = '';
       for(let r=0; r<block.rowIndex; r++){
         const v = String((rows[r] && rows[r][block.nameCol]) || '').trim();
-        if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = v;
+        if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = limpiarMarca(v);
       }
       // Si el propio encabezado de la hoja ya es descriptivo (ej: "ADHESIVO" en vez de
       // "Descripción"), lo usamos como categoría/marca inicial.
       if(!currentBrand){
         const headerLabel = String(rows[block.rowIndex][block.nameCol] || '').trim();
-        if(headerLabel && !NAME_HEADERS.includes(normHeader(headerLabel))) currentBrand = headerLabel;
+        if(headerLabel && !NAME_HEADERS.includes(normHeader(headerLabel))) currentBrand = limpiarMarca(headerLabel);
       }
 
       for(let r = block.rowIndex + 1; r < rows.length; r++){
@@ -1701,7 +1721,7 @@
         const precioBase = parsePrecio(row[block.priceCol]);
         if(precioBase === null){
           const v = String(nombreRaw || '').trim();
-          if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = v;
+          if(v && !NAME_HEADERS.includes(normHeader(v))) currentBrand = limpiarMarca(v);
           saltados++;
           continue;
         }
@@ -1748,18 +1768,49 @@
           (p.tipo || 'ceramica') === (data.tipo || 'ceramica') &&
           stripAccents(p.nombre || '').toLowerCase().trim() === stripAccents(nombre).toLowerCase().trim()
         );
+        let idFinal = null;
         if(existente){
           delete data.foto;
           const id = await saveOneProducto(data, existente.id);
-          if(id){ Object.assign(existente, data); actualizados++; } else { saltados++; }
+          if(id){ Object.assign(existente, data); actualizados++; idFinal = existente.id; } else { saltados++; }
         }else{
           const id = await saveOneProducto(data, null);
-          if(id){ productos.push({id, ...data}); cargados++; } else { saltados++; }
+          if(id){ productos.push({id, ...data}); cargados++; idFinal = id; } else { saltados++; }
         }
+        if(currentBrand) marcasImportadas.add(currentBrand);
+        const key = (data.tipo || 'ceramica') + '|' + stripAccents(nombre).toLowerCase().trim();
+        nombresImportados.add(key);
+        if(idFinal) idUsadoPorNombre.set(key, idFinal);
       }
     }
 
-    statusEl.textContent = `Se cargaron ${cargados} productos nuevos${actualizados ? ' y se actualizaron ' + actualizados + ' que ya tenías cargados' : ''} desde "${sheetName}"${blocks.length > 1 ? ' (' + blocks.length + ' tablas encontradas en la hoja)' : ''}${autoRend ? ' (' + autoRend + ' con el rendimiento por caja calculado automáticamente)' : ''}.${sinStock ? ' ' + sinStock + ' filas no se cargaron por decir "sin stock".' : ''}${saltados ? ' ' + saltados + ' filas se saltearon.' : ''} Ahora podés agregarles foto a los nuevos editando cada uno.`;
+    // Si se pidió reemplazar, borra los productos que ya tenías cargados de estas mismas
+    // marcas (y mismo tipo) que no aparecieron en este archivo. Nunca toca otras marcas
+    // que no se hayan importado ahora, para no tocar otras hojas/proveedores.
+    if($('#excelReemplazar').checked && marcasImportadas.size){
+      const candidatos = productos.filter(p => {
+        const tipoP = p.tipo || 'ceramica';
+        if(tipoP !== tipoLote) return false;
+        const marcaP = limpiarMarca(p.marca || '');
+        if(!marcaP || !marcasImportadas.has(marcaP)) return false;
+        const key = tipoP + '|' + stripAccents(p.nombre || '').toLowerCase().trim();
+        if(!nombresImportados.has(key)) return true;
+        // Está en el archivo, pero si es un duplicado sobrante del mismo nombre que no es
+        // el que quedó actualizado, también se borra.
+        const idBueno = idUsadoPorNombre.get(key);
+        return !!idBueno && p.id !== idBueno;
+      });
+      if(candidatos.length && confirm(`Además de lo importado, hay ${candidatos.length} producto(s) que ya tenías cargados de estas marcas y no están en este archivo. ¿Los borro?`)){
+        const idsBorrados = new Set();
+        for(const p of candidatos){
+          const ok = await deleteOneProducto(p.id);
+          if(ok){ eliminados++; idsBorrados.add(p.id); }
+        }
+        productos = productos.filter(p => !idsBorrados.has(p.id));
+      }
+    }
+
+    statusEl.textContent = `Se cargaron ${cargados} productos nuevos${actualizados ? ' y se actualizaron ' + actualizados + ' que ya tenías cargados' : ''} desde "${sheetName}"${blocks.length > 1 ? ' (' + blocks.length + ' tablas encontradas en la hoja)' : ''}${autoRend ? ' (' + autoRend + ' con el rendimiento por caja calculado automáticamente)' : ''}.${eliminados ? ' Se borraron ' + eliminados + ' producto(s) viejo(s) que ya no estaban en el archivo.' : ''}${sinStock ? ' ' + sinStock + ' filas no se cargaron por decir "sin stock".' : ''}${saltados ? ' ' + saltados + ' filas se saltearon.' : ''} Ahora podés agregarles foto a los nuevos editando cada uno.`;
     statusEl.className = 'status-msg show status-ok';
     $('#excelFile').value = '';
     $('#excelSheetRow').style.display = 'none';
